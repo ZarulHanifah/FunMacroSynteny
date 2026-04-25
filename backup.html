@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Macrosynteny Viz</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f1f5f9;
+            --text-color: #0f172a;
+            --sidebar-bg: #ffffff;
+            --chrom-gray: #e2e8f0;
+            --accent: #3b82f6;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebars */
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 100;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+            flex-shrink: 0;
+            transition: margin 0.3s ease;
+        }
+        #sidebar-left { border-right: 1px solid #e2e8f0; }
+        #sidebar-right { border-left: 1px solid #e2e8f0; }
+
+        #sidebar-left.hidden { margin-left: -260px; }
+        #sidebar-right.hidden { margin-right: -260px; }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-content {
+            padding: 1.5rem;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .config-section { margin-bottom: 2rem; }
+        .config-title { font-weight: 600; font-size: 13px; color: #64748b; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        .color-item { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+        .color-item input { border: none; width: 32px; height: 32px; cursor: pointer; background: none; }
+
+        .toggle-tab {
+            position: absolute;
+            background: white;
+            border: 1px solid #e2e8f0;
+            padding: 20px 4px;
+            cursor: pointer;
+            z-index: 110;
+            font-size: 14px;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+        }
+        .toggle-tab.left { right: -24px; top: 50%; transform: translateY(-50%); border-left: none; border-radius: 0 8px 8px 0; }
+        .toggle-tab.right { left: -24px; top: 50%; transform: translateY(-50%); border-right: none; border-radius: 8px 0 0 8px; box-shadow: -2px 0 5px rgba(0,0,0,0.05); }
+
+        /* Main Viz */
+        #main {
+            flex-grow: 1;
+            position: relative;
+            padding: 2rem;
+            background: #fff;
+            margin: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            overflow: auto;
+        }
+
+        .sample-group { cursor: default; }
+        .sample-label { font-weight: 600; font-size: 13px; fill: #475569; cursor: ns-resize; }
+        
+        .chrom-group { cursor: ew-resize; }
+        .chrom-bar { fill: var(--chrom-gray); stroke: #cbd5e1; stroke-width: 1px; }
+        .chrom-name { font-size: 11px; fill: #64748b; text-anchor: middle; font-weight: 500; }
+
+        .block-rect { stroke: none; } /* NO BLACK LINE */
+
+        .connector { stroke-width: 0px; pointer-events: none; }
+
+        #tooltip {
+            position: absolute;
+            background: #0f172a;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 200;
+        }
+        .genome-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .genome-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: #f8fafc;
+            border: 1px solid transparent;
+            margin-bottom: 4px;
+        }
+        .genome-item:hover {
+            background: #f1f5f9;
+        }
+        .genome-item.is-ref {
+            border-color: #f59e0b;
+            background: #fffbef;
+        }
+        .genome-item span {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ref-btn {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+            padding: 2px 4px;
+            font-size: 9px;
+            cursor: pointer;
+            color: #64748b;
+        }
+        .ref-btn.active {
+            background: #f59e0b;
+            color: white;
+            border-color: #f59e0b;
+        }
+        
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .control-row label {
+            flex: 1;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            color: #64748b;
+        }
+        .control-row input[type="range"] {
+            width: 80px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar-left" class="sidebar">
+        <button id="toggle-sidebar-left" class="toggle-tab left">⇇</button>
+        <div class="sidebar-header">
+            <strong>Configuration</strong>
+        </div>
+        <div class="sidebar-content">
+            <div class="config-section">
+                <div class="config-title">Data Source</div>
+                <input type="file" id="tsv-upload" accept=".tsv,.txt" style="display: none;">
+                <div style="display: flex; gap: 8px; flex-direction: column;">
+                    <button class="config-btn" onclick="document.getElementById('tsv-upload').click()" style="padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0; background: #f8fafc; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: 500;">
+                        📂 Load .links.tsv
+                    </button>
+                    <div class="control-row" style="margin-top: 8px;">
+                        <label>Reference</label>
+                        <select id="ref-selector" style="flex: 2; padding: 4px; font-size: 11px;"></select>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                        <button id="btn-ref-color" class="config-btn" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0; background: #f1f5f9; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: 500;">
+                            🎨 Ref-Color
+                        </button>
+                        <button id="btn-reset-focus" class="config-btn" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0; background: #fffcf0; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: 500;">
+                            🎯 Reset Focus
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <div class="config-title">Genomes</div>
+                <div id="genome-list" class="genome-list"></div>
+            </div>
+
+            <div class="config-section">
+                <div class="config-title">Layout Configuration</div>
+                <div class="control-row">
+                    <label>Show Labels</label>
+                    <input type="checkbox" id="cfg-showLabels" checked>
+                </div>
+                <div class="control-row">
+                    <label>Track Spacing</label>
+                    <input type="range" id="cfg-trackSpacing" min="50" max="400" value="180">
+                </div>
+                <div class="control-row">
+                    <label>Chrom Margin</label>
+                    <input type="range" id="cfg-chromMargin" min="0" max="200" value="20">
+                </div>
+                <div class="control-row">
+                    <label>Chrom Thickness</label>
+                    <input type="range" id="cfg-chromHeight" min="5" max="100" value="25">
+                </div>
+                <div class="control-row">
+                    <label>Horizontal Scale</label>
+                    <input type="range" id="cfg-scale" min="0.00001" max="0.001" step="0.00001" value="0.00015">
+                </div>
+            </div>
+
+            <div class="config-section">
+                <div class="config-title">Interaction</div>
+                <p style="font-size: 11px; color: #64748b; line-height: 1.6;">
+                    • <b>Invert</b>: Double-click chrom.<br>
+                    • <b>Focus</b>: Right-click chrom.<br>
+                    • <b>Reset Focus</b>: Click button above.<br>
+                    • <b>Reorder</b>: Drag labels or bars.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div id="main">
+        <div id="tooltip"></div>
+        <div id="viz"></div>
+    </div>
+
+    <div id="sidebar-right" class="sidebar">
+        <button id="toggle-sidebar-right" class="toggle-tab right">⇉</button>
+        <div class="sidebar-header">
+            <strong>Chrom Focus List</strong>
+        </div>
+        <div class="sidebar-content">
+            <div class="config-section">
+                <div class="config-title">Filter by Synteny Size</div>
+                <p style="font-size: 10px; color: #64748b; margin-bottom: 8px;">Hide chroms with total synteny < threshold (bp).</p>
+                <div class="control-row" style="flex-wrap: wrap; gap: 4px;">
+                    <input type="range" id="cfg-minSynteny-slider" min="0" max="10000000" step="10000" value="0" style="flex: 1; min-width: 100px;">
+                    <input type="number" id="cfg-minSynteny-text" value="0" step="10000" style="width: 80px;">
+                </div>
+            </div>
+
+            <div class="config-section">
+                <div class="config-title">Reference Chromosomes</div>
+                <div id="chrom-focus-list" class="genome-list">
+                    <p style="font-size: 11px; color: #94a3b8;">Select a reference to see chromosomes.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA & STATE ---
+        let state = {
+            samples: [],
+            colors: {},
+            draggedSample: null,
+            draggedChrom: null,
+            hiddenGenomes: new Set(),
+            refGenomeId: null,
+            focusChroms: new Set(), // Set of chrom IDs to focus on
+            minSyntenySize: 0
+        };
+
+        const config = {
+            width: window.innerWidth - 600,
+            height: 700,
+            trackSpacing: 180,
+            chromHeight: 25,
+            chromMargin: 20,
+            scale: 0.0001,
+            startX: 200, // Padding for labels
+            startY: 100,
+            showLabels: true
+        };
+
+        // --- TSV PARSING ---
+        document.getElementById('tsv-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const text = event.target.result;
+                const rows = d3.tsvParse(text);
+                processTSVData(rows);
+            };
+            reader.readAsText(file);
+        });
+
+        function autoScaleToFit() {
+            if (!state.samples.length) return;
+            const padding = 50;
+            const availableWidth = config.width - config.startX - padding;
+            const availableHeight = config.height - config.startY - padding;
+            
+            const visible = calculateLayout();
+            if (visible.length === 0) return;
+
+            // Horizontal fitting
+            let bestScale = 1.0; 
+            visible.forEach(s => {
+                const totalSeqSize = d3.sum(s.visualChroms, c => c.size);
+                const totalMargin = Math.max(0, (s.visualChroms.length - 1) * config.chromMargin);
+                if (totalSeqSize > 0) {
+                    const requiredScale = (availableWidth - totalMargin) / totalSeqSize;
+                    if (requiredScale < bestScale) bestScale = requiredScale;
+                }
+            });
+            config.scale = Math.max(0.000001, bestScale); 
+            
+            // Vertical fitting
+            if (visible.length > 1) {
+                const requiredSpacing = availableHeight / (visible.length - 1);
+                config.trackSpacing = Math.max(60, Math.min(300, requiredSpacing));
+            } else {
+                config.trackSpacing = 180;
+            }
+
+            const scaleSlider = document.getElementById('cfg-scale');
+            if (scaleSlider) scaleSlider.value = config.scale;
+
+            const spacingSlider = document.getElementById('cfg-trackSpacing');
+            if (spacingSlider) spacingSlider.value = config.trackSpacing;
+
+            updateScaleClamping();
+        }
+
+        function updateScaleClamping() {
+            const scaleSlider = document.getElementById('cfg-scale');
+            if (!scaleSlider || !state.samples.length) return;
+
+            const padding = 50;
+            const availableWidth = config.width - config.startX - padding;
+            
+            const visible = calculateLayout();
+            if (visible.length === 0) return;
+
+            let minS = 0;
+            visible.forEach(s => {
+                const totalSeqSize = d3.sum(s.visualChroms, c => c.size);
+                const totalMargin = Math.max(0, (s.visualChroms.length - 1) * config.chromMargin);
+                if (totalSeqSize > 0) {
+                    const req = (availableWidth - totalMargin) / totalSeqSize;
+                    if (minS === 0 || req < minS) minS = req;
+                }
+            });
+            const globalMin = Math.max(0.000001, minS);
+            scaleSlider.min = globalMin;
+            scaleSlider.max = globalMin * 15; 
+            
+            if (config.scale < globalMin) {
+                config.scale = globalMin;
+                scaleSlider.value = globalMin;
+            }
+        }
+
+        function processTSVData(rows) {
+            const samplesMap = new Map(); 
+            const blockGroups = new Set();
+
+            // Reset state for a new slate
+            state.samples = [];
+            state.colors = { "A": "#10b981", "B": "#3b82f6", "C": "#f43f5e" }; // Keep default palette
+            
+            // Re-detect dimensions
+            updateDimensions();
+
+            rows.forEach(row => {
+                const b1 = row.bin_id;
+                const b2 = row.bin_id2;
+                const s1 = row.seq_id;
+                const seq2 = row.seq_id2;
+                
+                const gid = row.block_id;
+                const hasLink = (b2 && b2 !== "null" && seq2 && seq2 !== "null");
+                if (hasLink) blockGroups.add(gid);
+
+                const touch = (bin, seq, st, en, block, isSource) => {
+                    if (!bin || bin === "null") return;
+                    if (!samplesMap.has(bin)) {
+                        samplesMap.set(bin, { id: bin, name: bin, chroms: new Map() });
+                    }
+                    const sample = samplesMap.get(bin);
+                    if (!sample.chroms.has(seq)) {
+                        sample.chroms.set(seq, { id: seq, name: seq, size: 0, blocks: [] });
+                    }
+                    const chrom = sample.chroms.get(seq);
+                    
+                    const startRaw = parseInt(st);
+                    const endRaw = parseInt(en);
+                    const realStart = Math.min(startRaw, endRaw);
+                    const realEnd = Math.max(startRaw, endRaw);
+                    
+                    chrom.size = Math.max(chrom.size, realEnd);
+                    chrom.blocks.push({ 
+                        group: block, 
+                        start: realStart, 
+                        end: realEnd,
+                        tsvStart: startRaw, // Preserve raw for links
+                        tsvEnd: endRaw,
+                        inverted: (startRaw > endRaw),
+                        linked: hasLink
+                    });
+                };
+
+                touch(b1, s1, row.start, row.end, gid, true);
+                if (hasLink) {
+                    touch(b2, seq2, row.start2, row.end2, gid, false);
+                }
+            });
+
+            const samples = [];
+            let slot = 0;
+            samplesMap.forEach((sInfo, bin) => {
+                const chroms = [];
+                let x = 0;
+                sInfo.chroms.forEach((cInfo, seq) => {
+                    chroms.push({ ...cInfo, x: x++ });
+                });
+                samples.push({ id: sInfo.id, name: sInfo.name, slot: slot++, chroms: chroms });
+            });
+
+            state.samples = samples;
+            state.colorMode = "ref"; // Default behavior
+
+            updateRefSelector();
+            updateFocusList();
+            
+            // Auto-pick first ref
+            if (state.samples.length > 0) {
+                state.refGenomeId = state.samples[0].id;
+                const selector = document.getElementById('ref-selector');
+                if (selector) selector.value = state.refGenomeId;
+                applyColoring();
+            }
+
+            autoScaleToFit();
+            render();
+            updateColorControls();
+            updateScaleClamping();
+        }
+
+        // --- CORE UI ---
+        const svg = d3.select("#viz").append("svg")
+            .attr("width", config.width)
+            .attr("height", 800);
+
+        const linkLayer = svg.append("g").attr("class", "links");
+        const trackLayer = svg.append("g").attr("class", "tracks");
+
+        // --- SIDEBAR & UI ---
+
+        function updateRefSelector() {
+            const select = d3.select("#ref-selector");
+            const current = state.refGenomeId;
+            select.selectAll("*").remove();
+
+            state.samples.forEach(s => {
+                select.append("option")
+                    .attr("value", s.id)
+                    .property("selected", s.id === current)
+                    .text(s.name);
+            });
+
+            if (!state.refGenomeId && state.samples.length) {
+                state.refGenomeId = state.samples[0].id;
+                updateFocusList();
+            }
+        }
+
+        function updateFocusList() {
+            const container = d3.select("#chrom-focus-list");
+            container.selectAll("*").remove();
+
+            const ref = state.samples.find(s => s.id === state.refGenomeId);
+            if (!ref) {
+                container.append("p").style("font-size", "11px").style("color", "#94a3b8").text("Select a valid reference.");
+                return;
+            }
+
+            ref.chroms.forEach(c => {
+                const item = container.append("div").attr("class", "genome-item");
+                item.append("input")
+                    .attr("type", "checkbox")
+                    .property("checked", state.focusChroms.has(c.id))
+                    .on("change", function() {
+                        if (this.checked) state.focusChroms.add(c.id);
+                        else state.focusChroms.delete(c.id);
+                        autoScaleToFit();
+                        render();
+                    });
+                item.append("span").text(c.name);
+            });
+        }
+
+        function updateGenomeList() {
+            const container = d3.select("#genome-list");
+            if (!container.node()) return;
+            container.selectAll("*").remove();
+
+            [...state.samples].sort((a,b) => a.slot - b.slot).forEach(s => {
+                const item = container.append("div")
+                    .attr("class", `genome-item ${state.refGenomeId === s.id ? 'is-ref' : ''}`);
+                
+                item.append("input")
+                    .attr("type", "checkbox")
+                    .property("checked", !state.hiddenGenomes.has(s.id))
+                    .on("change", function() {
+                        if (this.checked) {
+                            state.hiddenGenomes.delete(s.id);
+                        } else {
+                            state.hiddenGenomes.add(s.id);
+                            // If we hide the ref, maybe we should warn? But just reset focus if it was focused
+                            if (state.refGenomeId === s.id) {
+                                // Keep it as ref for now but it's hidden
+                            }
+                        }
+                        render();
+                    });
+                item.append("span").text(s.name).attr("title", s.name);
+            });
+        }
+
+        function applyColoring() {
+            if (state.colorMode === "ref") {
+                const ref = state.samples.find(s => s.id === state.refGenomeId);
+                if (!ref) return;
+
+                const palette = [
+                    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", 
+                    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+                    "#aec7e8", "#ffbb78", "#98df8a", "#ff9896", "#c5b0d5",
+                    "#c49c94", "#f7b6d2", "#c7c7c7", "#dbdb8d", "#9edae5"
+                ];
+                
+                state.colors = {};
+                ref.chroms.forEach((chrom, i) => {
+                    const color = palette[i % palette.length];
+                    chrom.blocks.forEach(b => {
+                        if (b.linked) state.colors[b.group] = color;
+                    });
+                });
+            } else {
+                // Individual Block Coloring
+                const palette = d3.schemeTableau10;
+                let pIdx = 0;
+                state.colors = {};
+                state.samples.forEach(s => {
+                    s.chroms.forEach(c => {
+                        c.blocks.forEach(b => {
+                            if (b.linked && !state.colors[b.group]) {
+                                state.colors[b.group] = palette[pIdx % palette.length];
+                                pIdx++;
+                            }
+                        });
+                    });
+                });
+            }
+            
+            const btn = d3.select("#btn-ref-color");
+            if (state.colorMode === "ref") {
+                btn.text("Color: Fixed Blocks").classed("active", false);
+            } else {
+                btn.text("Color: Ref Chroms").classed("active", true);
+            }
+            
+            render(false);
+        }
+
+        function calculateLayout() {
+            let visibleSamples = state.samples.filter(s => !state.hiddenGenomes.has(s.id));
+            
+            // Optimized weight calculation
+            const groupMap = new Map(); // groupID -> [chromID, chromID, ...]
+            state.samples.forEach(s => {
+                s.chroms.forEach(c => {
+                    c.blocks.forEach(b => {
+                        if (!b.linked) return;
+                        if (!groupMap.has(b.group)) groupMap.set(b.group, []);
+                        groupMap.get(b.group).push({ chromId: c.id, size: b.end - b.start });
+                    });
+                });
+            });
+
+            const weights = new Map(); // ChromID1_ChromID2 -> totalSize
+            groupMap.forEach((members, gId) => {
+                for (let i = 0; i < members.length; i++) {
+                    for (let j = i + 1; j < members.length; j++) {
+                        const m1 = members[i];
+                        const m2 = members[j];
+                        if (m1.chromId === m2.chromId) continue;
+                        const key = [m1.chromId, m2.chromId].sort().join("||");
+                        // We count the block size once per link
+                        weights.set(key, (weights.get(key) || 0) + m1.size); 
+                    }
+                }
+            });
+
+            if (state.focusChroms.size > 0) {
+                const focusGroups = new Set();
+                state.samples.forEach(s => {
+                    s.chroms.forEach(c => {
+                        if (state.focusChroms.has(c.id)) {
+                            c.blocks.forEach(b => { if (b.linked) focusGroups.add(b.group); });
+                        }
+                    });
+                });
+
+                visibleSamples.forEach(s => {
+                    s.visualChroms = s.chroms.filter(c => {
+                        if (state.focusChroms.has(c.id)) return true;
+                        
+                        // Check if this chrom has ENOUGH syn-weight with ANY of the focus chroms
+                        const hitsFocus = Array.from(state.focusChroms).some(fId => {
+                            const key = [c.id, fId].sort().join("||");
+                            const w = weights.get(key);
+                            return w !== undefined && w >= state.minSyntenySize;
+                        });
+                        
+                        return hitsFocus;
+                    });
+                });
+                visibleSamples = visibleSamples.filter(s => s.visualChroms.length > 0);
+            } else {
+                // In global mode, show only chroms that have at least one link >= threshold with SOMEBODY?
+                // Or just show everything but filter blocks? User said "not display chroms".
+                // Let's filter chroms that have NO link > threshold to anything else.
+                visibleSamples.forEach(s => {
+                    s.visualChroms = s.chroms.filter(c => {
+                        if (state.minSyntenySize === 0) return true;
+                        // Is there ANY other chrom that meets thresh?
+                        return state.samples.some(s2 => {
+                            if (s.id === s2.id) return false;
+                            return s2.chroms.some(c2 => {
+                                const key = [c.id, c2.id].sort().join("||");
+                                const w = weights.get(key);
+                                return w !== undefined && w >= state.minSyntenySize;
+                            });
+                        });
+                    });
+                });
+            }
+
+            // 2. Sort and assign visual slots to keep them stacked without gaps
+            visibleSamples.sort((a,b) => a.slot - b.slot).forEach((s, i) => s.visualSlot = i);
+
+            // 3. Update absolute X horizontal positions
+            visibleSamples.forEach(sample => {
+                let currentX = 0;
+                sample.visualChroms.sort((a,b) => a.x - b.x).forEach((c, i) => {
+                    c.absX = currentX;
+                    currentX += (c.size * config.scale) + config.chromMargin;
+                });
+            });
+            return visibleSamples;
+        }
+
+        function render(animate = true) {
+            const visibleSamples = calculateLayout();
+            updateGenomeList();
+
+            // Tracks
+            const tracks = trackLayer.selectAll(".sample-group").data(visibleSamples, d => d.id);
+            tracks.exit().remove();
+            
+            // ... (rest of render logic remains same, but using visualSlot)
+
+            const tracksEnter = tracks.enter().append("g")
+                .attr("class", "sample-group")
+                .attr("id", d => `track-${d.id}`)
+                .call(d3.drag()
+                    .on("start", dragSampleStart)
+                    .on("drag", dragSample)
+                    .on("end", dragSampleEnd));
+
+            tracksEnter.append("rect")
+                .attr("class", "drag-handle")
+                .attr("x", -config.startX)
+                .attr("width", config.startX)
+                .attr("height", config.chromHeight)
+                .attr("fill", "transparent");
+
+            tracksEnter.append("text")
+                .attr("class", "sample-label")
+                .attr("x", -10)
+                .attr("text-anchor", "end")
+                .attr("y", config.chromHeight / 2 + 5);
+
+            const tracksMerged = tracks.merge(tracksEnter);
+            tracksMerged.filter(d => d !== state.draggedSample)
+                .transition().duration(animate ? 300 : 0)
+                .attr("transform", d => `translate(${config.startX}, ${config.startY + d.visualSlot * config.trackSpacing})`);
+
+            tracksMerged.select(".sample-label").text(d => d.name);
+
+            tracksMerged.each(function(sample) {
+                const chroms = d3.select(this).selectAll(".chrom-group")
+                    .data(sample.visualChroms, d => d.id);
+                chroms.exit().remove();
+
+                const chromsEnter = chroms.enter().append("g")
+                    .attr("class", "chrom-group")
+                    .on("dblclick", (event, d) => {
+                        event.stopPropagation();
+                        d.inverted = !d.inverted;
+                        render();
+                    })
+                    .on("contextmenu", (event, d) => {
+                        event.preventDefault();
+                        if (state.focusChroms.has(d.id)) state.focusChroms.delete(d.id);
+                        else state.focusChroms.add(d.id);
+                        autoScaleToFit();
+                        render();
+                    })
+                    .call(d3.drag()
+                        .on("start", dragChromStart)
+                        .on("drag", dragChrom)
+                        .on("end", dragChromEnd));
+
+                chromsEnter.append("rect")
+                    .attr("class", "chrom-bar")
+                    .attr("height", config.chromHeight)
+                    .attr("rx", 4);
+
+                chromsEnter.append("text")
+                    .attr("class", "chrom-name")
+                    .attr("y", config.chromHeight + 15);
+
+                const chromsMerged = chroms.merge(chromsEnter);
+                
+                // Only transition chroms NOT currently being dragged
+                chromsMerged.filter(d => d !== state.draggedChrom)
+                    .transition().duration(animate ? 300 : 0)
+                    .attr("transform", d => `translate(${d.absX}, 0)`);
+
+                chromsMerged.select(".chrom-bar").attr("width", d => d.size * config.scale);
+                chromsMerged.select(".chrom-name")
+                    .attr("x", d => (d.size * config.scale) / 2)
+                    .text(d => d.name + (d.inverted ? " (rev)" : ""))
+                    .attr("opacity", config.showLabels ? 1 : 0);
+
+                // 3. Blocks
+                const blocks = chromsMerged.selectAll(".block-rect").data(d => d.blocks);
+                blocks.exit().remove();
+                
+                blocks.enter().append("rect")
+                    .attr("class", "block-rect")
+                    .attr("height", config.chromHeight)
+                    .on("mouseover", (event, b) => {
+                        const tooltip = d3.select("#tooltip");
+                        tooltip.style("opacity", 1)
+                            .html(`<strong>Block: ${b.group}</strong><br>Start: ${b.start.toLocaleString()}<br>End: ${b.end.toLocaleString()}<br>Inverted: ${b.inverted}`)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 20) + "px");
+                    })
+                    .on("mousemove", (event) => {
+                        d3.select("#tooltip")
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 20) + "px");
+                    })
+                    .on("mouseout", () => {
+                        d3.select("#tooltip").style("opacity", 0);
+                    })
+                    .merge(blocks)
+                    .attr("x", (b, i, nodes) => {
+                        const chrom = d3.select(nodes[i].parentNode).datum();
+                        // If chrom is inverted, block position is flipped
+                        return chrom.inverted ? 
+                            (chrom.size - b.end) * config.scale : 
+                            b.start * config.scale;
+                    })
+                    .attr("width", b => (b.end - b.start) * config.scale)
+                    .attr("fill", b => {
+                        if (!b.linked) return "#cbd5e1";
+                        return state.colors[b.group] || "#e2e8f0";
+                    });
+            });
+
+            renderLinks(visibleSamples);
+        }
+
+        function renderLinks(visibleSamples) {
+            const links = [];
+            if (!visibleSamples) return;
+
+            for (let i = 0; i < visibleSamples.length - 1; i++) {
+                const s1 = visibleSamples[i];
+                const s2 = visibleSamples[i+1];
+                
+                s1.visualChroms.forEach(c1 => {
+                    c1.blocks.forEach(b1 => {
+                        if (!b1.linked) return;
+                        s2.visualChroms.forEach(c2 => {
+                            c2.blocks.forEach(b2 => {
+                                if (b1.group === b2.group) {
+                                    const y1_base = state.draggedSample === s1 ? s1.currentDragY : (config.startY + s1.visualSlot * config.trackSpacing);
+                                    const y2_base = state.draggedSample === s2 ? s2.currentDragY : (config.startY + s2.visualSlot * config.trackSpacing);
+                                    
+                                    const x1_base = state.draggedChrom === c1 ? c1.currentDragX : c1.absX;
+                                    const x2_base = state.draggedChrom === c2 ? c2.currentDragX : c2.absX;
+
+                                    const getX = (chrom, x_offset, bp) => {
+                                        const base = config.startX + x_offset;
+                                        const val = (bp !== undefined && !isNaN(bp)) ? bp : 0;
+                                        if (chrom.inverted) {
+                                            return base + (chrom.size - val) * config.scale;
+                                        }
+                                        return base + val * config.scale;
+                                    };
+
+                                    // Fallback to start/end if tsvStart/End aren't available (for demo data)
+                                    const s1_eff = (b1.tsvStart !== undefined) ? b1.tsvStart : b1.start;
+                                    const e1_eff = (b1.tsvEnd !== undefined) ? b1.tsvEnd : b1.end;
+                                    const s2_eff = (b2.tsvStart !== undefined) ? b2.tsvStart : b2.start;
+                                    const e2_eff = (b2.tsvEnd !== undefined) ? b2.tsvEnd : b2.end;
+
+                                    links.push({
+                                        group: b1.group,
+                                        p1: { x1: getX(c1, x1_base, s1_eff), 
+                                              x2: getX(c1, x1_base, e1_eff), 
+                                              y: y1_base + config.chromHeight },
+                                        p2: { x1: getX(c2, x2_base, s2_eff), 
+                                              x2: getX(c2, x2_base, e2_eff), 
+                                              y: y2_base }
+                                    });
+                                }
+                            });
+                        });
+                    });
+                });
+            }
+
+            const pathLayer = linkLayer.selectAll(".connector").data(links);
+            pathLayer.exit().remove();
+            
+            pathLayer.enter().append("path")
+                .attr("class", "connector")
+                .merge(pathLayer)
+                .attr("fill", d => state.colors[d.group])
+                .attr("opacity", 0.3)
+                .attr("d", d => {
+                    const p = d3.path();
+                    p.moveTo(d.p1.x1, d.p1.y);
+                    p.lineTo(d.p1.x2, d.p1.y);
+                    p.lineTo(d.p2.x2, d.p2.y);
+                    p.lineTo(d.p2.x1, d.p2.y);
+                    p.closePath();
+                    return p.toString();
+                });
+        }
+
+        // --- DRAG LOGIC ---
+
+        function dragSampleStart(event, d) {
+            state.draggedSample = d;
+            d.startY = config.startY + d.slot * config.trackSpacing;
+            d.offsetY = event.y - d.startY;
+            d3.select(`#track-${d.id}`).raise().interrupt();
+        }
+        function dragSample(event, d) {
+            const currentY = event.y - d.offsetY;
+            d.currentDragY = currentY;
+            d3.select(`#track-${d.id}`).attr("transform", `translate(${config.startX}, ${currentY})`);
+
+            // Check for swaps with other slots - more stable overlap check
+            state.samples.forEach(other => {
+                if (other === d) return;
+                const otherY = config.startY + other.slot * config.trackSpacing;
+                
+                // Swap if we cross the midpoint of the other sample
+                if ( (d.slot < other.slot && currentY > otherY - 40) ||
+                     (d.slot > other.slot && currentY < otherY + 40) ) {
+                    const oldSlot = d.slot;
+                    d.slot = other.slot;
+                    other.slot = oldSlot;
+                    render(true);
+                }
+            });
+            renderLinks(calculateLayout());
+        }
+        function dragSampleEnd(event, d) {
+            state.draggedSample = null;
+            render();
+        }
+
+        function dragChromStart(event, d) {
+            state.draggedChrom = d;
+            d.offsetX = event.x - d.absX;
+            d3.select(this).raise().interrupt();
+        }
+        function dragChrom(event, d) {
+            const currentX = event.x - d.offsetX;
+            d.currentDragX = currentX;
+            d3.select(this).attr("transform", `translate(${currentX}, 0)`);
+
+            // Find parent sample from existing data
+            const sample = state.samples.find(s => s.chroms.some(c => c.id === d.id));
+            if (!sample || !sample.visualChroms) return;
+
+            sample.visualChroms.forEach(other => {
+                if (other === d) return;
+                
+                const dCenter = currentX + (d.size * config.scale) / 2;
+                const otherCenter = other.absX + (other.size * config.scale) / 2;
+
+                if ( (d.x < other.x && dCenter > otherCenter) ||
+                     (d.x > other.x && dCenter < otherCenter) ) {
+                    const oldX = d.x;
+                    d.x = other.x;
+                    other.x = oldX;
+                    render(true);
+                }
+            });
+            renderLinks(calculateLayout());
+        }
+        function dragChromEnd(event, d) {
+            state.draggedChrom = null;
+            render();
+        }
+
+        // --- SIDEBAR & UI ---
+
+        function updateDimensions() {
+            const main = document.getElementById('main');
+            if (!main) return;
+            const rect = main.getBoundingClientRect();
+            config.width = rect.width - 64; 
+            config.height = rect.height - 64;
+            
+            svg.attr("width", config.width).attr("height", config.height);
+        }
+
+        function updateScaleClamping() {
+            if (!state.samples.length) return;
+            
+            const padding = 50;
+            const availableWidth = config.width - config.startX - padding;
+            
+            let minFitScale = 0;
+            state.samples.forEach(s => {
+                const seqSize = d3.sum(s.chroms, c => c.size);
+                const marginSize = (s.chroms.length - 1) * config.chromMargin;
+                if (seqSize > 0) {
+                    const limit = (availableWidth - marginSize) / seqSize;
+                    if (minFitScale === 0 || limit < minFitScale) {
+                        minFitScale = limit;
+                    }
+                }
+            });
+
+            const scaleSlider = document.getElementById('cfg-scale');
+            if (scaleSlider) {
+                const fitScale = Math.max(0.000001, minFitScale);
+                scaleSlider.min = fitScale; // Minimum is "See Everything"
+                scaleSlider.max = fitScale * 100; // Let them zoom in 100x
+                
+                // Ensure current scale is within bounds
+                if (config.scale < fitScale) {
+                    config.scale = fitScale;
+                    scaleSlider.value = fitScale;
+                }
+            }
+        }
+
+        function applyReferenceColoring() {
+            if (!state.refGenomeId) {
+                alert("Please select a reference genome from the dropdown first!");
+                return;
+            }
+            
+            const ref = state.samples.find(s => s.id === state.refGenomeId);
+            if (!ref) return;
+
+            const palette = [
+                "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", 
+                "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+                "#aec7e8", "#ffbb78", "#98df8a", "#ff9896", "#c5b0d5",
+                "#c49c94", "#f7b6d2", "#c7c7c7", "#dbdb8d", "#9edae5"
+            ];
+            
+            state.colors = {};
+            ref.chroms.forEach((chrom, i) => {
+                const color = palette[i % palette.length];
+                chrom.blocks.forEach(b => {
+                    if (b.linked) state.colors[b.group] = color;
+                });
+            });
+            render(false);
+        }
+
+        function initControls() {
+            // Reference Selector
+            d3.select("#ref-selector").on("change", function() {
+                state.refGenomeId = this.value;
+                state.focusChroms.clear();
+                updateFocusList();
+                if (state.colorMode === "ref") applyColoring();
+                else render();
+            });
+
+            // Action Buttons
+            d3.select("#btn-ref-color").on("click", () => {
+                state.colorMode = (state.colorMode === "ref") ? "block" : "ref";
+                applyColoring();
+            });
+            d3.select("#btn-reset-focus").on("click", () => {
+                state.focusChroms.clear();
+                updateFocusList(); // RE-RENDER checkboxes
+                autoScaleToFit();
+                render();
+            });
+
+            // Sidebars
+            d3.select("#toggle-sidebar-left").on("click", function() {
+                const sb = d3.select("#sidebar-left");
+                const hidden = sb.classed("hidden");
+                sb.classed("hidden", !hidden);
+                d3.select(this).text(!hidden ? "⇉" : "⇇");
+                setTimeout(() => { updateDimensions(); autoScaleToFit(); render(); }, 350);
+            });
+
+            d3.select("#toggle-sidebar-right").on("click", function() {
+                const sb = d3.select("#sidebar-right");
+                const hidden = sb.classed("hidden");
+                sb.classed("hidden", !hidden);
+                d3.select(this).text(!hidden ? "⇇" : "⇉");
+                setTimeout(() => { updateDimensions(); autoScaleToFit(); render(); }, 350);
+            });
+
+            // Config: Show Labels
+            const labelCb = document.getElementById('cfg-showLabels');
+            if (labelCb) {
+                labelCb.addEventListener('change', function() {
+                    config.showLabels = this.checked;
+                    render(false);
+                });
+            }
+
+            // Sync Slider + Text for Min Synteny
+            const synSlider = document.getElementById('cfg-minSynteny-slider');
+            const synText = document.getElementById('cfg-minSynteny-text');
+            if (synSlider && synText) {
+                const sync = (val) => {
+                    state.minSyntenySize = parseInt(val) || 0;
+                    synSlider.value = state.minSyntenySize;
+                    synText.value = state.minSyntenySize;
+                    render();
+                };
+                synSlider.addEventListener('input', e => sync(e.target.value));
+                synText.addEventListener('input', e => sync(e.target.value));
+            }
+
+            // Sliders
+            const sliders = [
+                { id: 'cfg-trackSpacing', key: 'trackSpacing' },
+                { id: 'cfg-chromMargin', key: 'chromMargin' },
+                { id: 'cfg-scale', key: 'scale' },
+                { id: 'cfg-chromHeight', key: 'chromHeight' }
+            ];
+
+            sliders.forEach(s => {
+                const el = document.getElementById(s.id);
+                if (el) {
+                    el.value = (s.key === 'chromHeight') ? config.chromHeight : config[s.key];
+                    el.addEventListener('input', function() {
+                        const val = parseFloat(this.value);
+                        if (s.key === 'chromHeight') config.chromHeight = val;
+                        else config[s.key] = val;
+                        
+                        if (s.key === 'chromMargin') updateScaleClamping();
+                        render(false);
+                    });
+                }
+            });
+        }
+
+        window.addEventListener('resize', () => {
+            updateDimensions();
+            updateScaleClamping();
+            render();
+        });
+
+        // Initialize
+        updateDimensions();
+        initControls();
+        
+        if (window.bakedData) {
+            const rows = d3.tsvParse(window.bakedData);
+            processTSVData(rows);
+        } else {
+            // Default demo data setup
+            const demoRows = d3.tsvParse(`block_id	bin_id	seq_id	start	end	bin_id2	seq_id2	start2	end2
+A	S1	Chr 1	0	1000000	S2	Chr 1	0	1000000
+B	S1	Chr 2	0	2000000	S2	Chr 2	0	2000000
+C	S1	Chr 3	0	500000	S2	Chr 3	0	500000
+C	S1	Chr 3	0	500000	S2	Chr 2	2000000	2500000`);
+            processTSVData(demoRows);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+- Hover info needs to be closer to the cursor
+- Hover info should be within canvas. If I hover a chrom positioned on the right, the hover info should pan towards the left
+- If I hover a chrom, the cursor shape is like two-way arrow. But I dont want that. It should be that two-way arrow only when I hold a chrom
+- You see, when I load complex.links.tsv, of course there are six genome, but the last genome is outside of the view. Canvas should only fit within whatever I can see
+- For any slider, we need a text box on its right side to change the slider value
+- Say I hid some genomes, or I changed track spacing, when I want to shift genome positions on the canvas, the moment I started holding on a genome, its starting position is not where it currently is but way down below; something wrong there
+- Can we slightly widen the left sidebar by +10%
+- I never understood the horizontal scale. Say we talking about the initial demo. The chroms are positioned nicely where things are. But the value of the horizontal scale was low to begin, and when I increase horizontal scale value, the chroms easily flow out of display, which should NEVER BE THE CASE! Why??? Why the range of horizontal scale dont make sense?

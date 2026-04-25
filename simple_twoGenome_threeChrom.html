@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Macrosynteny Viz</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f1f5f9;
+            --text-color: #0f172a;
+            --sidebar-bg: #ffffff;
+            --chrom-gray: #e2e8f0;
+            --accent: #3b82f6;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        #sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid #e2e8f0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+            z-index: 100;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.05);
+        }
+
+        #sidebar.hidden {
+            transform: translateX(-100%);
+            position: absolute;
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-content {
+            padding: 1.5rem;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .config-section { margin-bottom: 2rem; }
+        .config-title { font-weight: 600; font-size: 13px; color: #64748b; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        .color-item { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+        .color-item input { border: none; width: 32px; height: 32px; cursor: pointer; background: none; }
+
+        #toggle-sidebar {
+            position: absolute;
+            left: 270px;
+            top: 20px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            z-index: 110;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        /* Main Viz */
+        #main {
+            flex-grow: 1;
+            position: relative;
+            padding: 2rem;
+            background: #fff;
+            margin: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            overflow: auto;
+        }
+
+        .sample-group { cursor: default; }
+        .sample-label { font-weight: 600; font-size: 13px; fill: #475569; cursor: ns-resize; }
+        
+        .chrom-group { cursor: ew-resize; }
+        .chrom-bar { fill: var(--chrom-gray); stroke: #cbd5e1; stroke-width: 1px; }
+        .chrom-name { font-size: 11px; fill: #64748b; text-anchor: middle; font-weight: 500; }
+
+        .block-rect { stroke: none; } /* NO BLACK LINE */
+
+        .connector { stroke-width: 0px; pointer-events: none; }
+
+        #tooltip {
+            position: absolute;
+            background: #0f172a;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 200;
+        }
+    </style>
+</head>
+<body>
+    <button id="toggle-sidebar">⚙️</button>
+    
+    <div id="sidebar">
+        <div class="sidebar-header">
+            <strong>Configuration</strong>
+        </div>
+        <div class="sidebar-content">
+            <div class="config-section">
+                <div class="config-title">Group Colors</div>
+                <div id="color-controls"></div>
+            </div>
+            <div class="config-section">
+                <div class="config-title">Interaction</div>
+                <p style="font-size: 12px; color: #64748b;">
+                    • Drag sample labels to reorder tracks.<br>
+                    • Drag chromosomes to reorder them within a track.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div id="main">
+        <div id="tooltip"></div>
+        <div id="viz"></div>
+    </div>
+
+    <script>
+        // --- DATA & STATE ---
+        let state = {
+            samples: [
+                {
+                    id: "S1", name: "Sample 1", y: 0, slot: 0,
+                    chroms: [
+                        { id: "S1-C1", name: "Chr 1", size: 1000000, x: 0, blocks: [{ group: "A", start: 0, end: 1000000 }] },
+                        { id: "S1-C2", name: "Chr 2", size: 2000000, x: 1, blocks: [{ group: "B", start: 0, end: 2000000 }] },
+                        { id: "S1-C3", name: "Chr 3", size: 500000, x: 2, blocks: [{ group: "C", start: 0, end: 500000 }] }
+                    ]
+                },
+                {
+                    id: "S2", name: "Sample 2", y: 1, slot: 1,
+                    chroms: [
+                        { id: "S2-C1", name: "Chr 1", size: 1000000, x: 0, blocks: [{ group: "A", start: 0, end: 1000000 }] },
+                        { id: "S2-C2", name: "Chr 2", size: 2500000, x: 1, blocks: [
+                            { group: "B", start: 0, end: 2000000 },
+                            { group: "C", start: 2000000, end: 2500000 }
+                        ]},
+                        { id: "S2-C3", name: "Chr 3", size: 500000, x: 2, blocks: [{ group: "C", start: 0, end: 500000 }] }
+                    ]
+                }
+            ],
+            colors: {
+                "A": "#10b981",
+                "B": "#3b82f6",
+                "C": "#f43f5e"
+            },
+            draggedSample: null,
+            draggedChrom: null
+        };
+
+        const config = {
+            width: 1200,
+            trackSpacing: 180,
+            chromHeight: 24,
+            chromMargin: 50,
+            scale: 0.0001,
+            startX: 100,
+            startY: 80
+        };
+
+        // --- CORE UI ---
+        const svg = d3.select("#viz").append("svg")
+            .attr("width", config.width)
+            .attr("height", 800);
+
+        const linkLayer = svg.append("g").attr("class", "links");
+        const trackLayer = svg.append("g").attr("class", "tracks");
+
+        function calculateLayout() {
+            // Update absolute X horizontal positions based on chrom order (slot)
+            state.samples.forEach(sample => {
+                let currentX = 0;
+                sample.chroms.sort((a,b) => a.x - b.x).forEach((c, i) => {
+                    c.slot = i;
+                    c.absX = currentX;
+                    currentX += (c.size * config.scale) + config.chromMargin;
+                });
+            });
+        }
+
+        function render(animate = true) {
+            calculateLayout();
+
+            // 1. Tracks (Samples)
+            const tracks = trackLayer.selectAll(".sample-group")
+                .data(state.samples, d => d.id);
+            
+            const tracksEnter = tracks.enter().append("g")
+                .attr("class", "sample-group")
+                .attr("id", d => `track-${d.id}`)
+                .call(d3.drag()
+                    .on("start", dragSampleStart)
+                    .on("drag", dragSample)
+                    .on("end", dragSampleEnd));
+
+            tracksEnter.append("rect")
+                .attr("class", "drag-handle")
+                .attr("x", -config.startX)
+                .attr("width", config.startX)
+                .attr("height", config.chromHeight)
+                .attr("fill", "transparent");
+
+            tracksEnter.append("text")
+                .attr("class", "sample-label")
+                .attr("x", -80)
+                .attr("y", config.chromHeight / 2 + 5)
+                .text(d => d.name);
+
+            const tracksMerged = tracks.merge(tracksEnter);
+            
+            // Only transition tracks NOT currently being dragged
+            tracksMerged.filter(d => d !== state.draggedSample)
+                .transition().duration(animate ? 300 : 0)
+                .attr("transform", d => `translate(${config.startX}, ${config.startY + d.slot * config.trackSpacing})`);
+
+            // 2. Chromosomes
+            tracksMerged.each(function(sample) {
+                const chroms = d3.select(this).selectAll(".chrom-group")
+                    .data(sample.chroms, d => d.id);
+
+                const chromsEnter = chroms.enter().append("g")
+                    .attr("class", "chrom-group")
+                    .call(d3.drag()
+                        .on("start", dragChromStart)
+                        .on("drag", dragChrom)
+                        .on("end", dragChromEnd));
+
+                chromsEnter.append("rect")
+                    .attr("class", "chrom-bar")
+                    .attr("height", config.chromHeight);
+
+                chromsEnter.append("text")
+                    .attr("class", "chrom-name")
+                    .attr("y", -8);
+
+                const chromsMerged = chroms.merge(chromsEnter);
+                
+                // Only transition chroms NOT currently being dragged
+                chromsMerged.filter(d => d !== state.draggedChrom)
+                    .transition().duration(animate ? 300 : 0)
+                    .attr("transform", d => `translate(${d.absX}, 0)`);
+
+                chromsMerged.select(".chrom-bar").attr("width", d => d.size * config.scale);
+                chromsMerged.select(".chrom-name")
+                    .attr("x", d => (d.size * config.scale) / 2)
+                    .text(d => d.name);
+
+                // 3. Blocks
+                const blocks = chromsMerged.selectAll(".block-rect").data(d => d.blocks);
+                blocks.enter().append("rect")
+                    .attr("class", "block-rect")
+                    .attr("height", config.chromHeight)
+                    .merge(blocks)
+                    .attr("x", b => b.start * config.scale)
+                    .attr("width", b => (b.end - b.start) * config.scale)
+                    .attr("fill", b => state.colors[b.group]);
+            });
+
+            renderLinks();
+        }
+
+        function renderLinks() {
+            const links = [];
+            const sortedSamples = [...state.samples].sort((a,b) => a.slot - b.slot);
+
+            for (let i = 0; i < sortedSamples.length - 1; i++) {
+                const s1 = sortedSamples[i];
+                const s2 = sortedSamples[i+1];
+                
+                s1.chroms.forEach(c1 => {
+                    c1.blocks.forEach(b1 => {
+                        s2.chroms.forEach(c2 => {
+                            c2.blocks.forEach(b2 => {
+                                if (b1.group === b2.group) {
+                                    // Calculate precise vertical positions even during drag
+                                    const y1_base = state.draggedSample === s1 ? s1.currentDragY : (config.startY + s1.slot * config.trackSpacing);
+                                    const y2_base = state.draggedSample === s2 ? s2.currentDragY : (config.startY + s2.slot * config.trackSpacing);
+                                    
+                                    // Calculate precise horizontal positions
+                                    const x1_base = state.draggedChrom === c1 ? c1.currentDragX : c1.absX;
+                                    const x2_base = state.draggedChrom === c2 ? c2.currentDragX : c2.absX;
+
+                                    links.push({
+                                        group: b1.group,
+                                        p1: { x1: config.startX + x1_base + b1.start * config.scale, 
+                                              x2: config.startX + x1_base + b1.end * config.scale, 
+                                              y: y1_base + config.chromHeight },
+                                        p2: { x1: config.startX + x2_base + b2.start * config.scale, 
+                                              x2: config.startX + x2_base + b2.end * config.scale, 
+                                              y: y2_base }
+                                    });
+                                }
+                            });
+                        });
+                    });
+                });
+            }
+
+            const pathLayer = linkLayer.selectAll(".connector").data(links);
+            pathLayer.exit().remove();
+            
+            pathLayer.enter().append("path")
+                .attr("class", "connector")
+                .merge(pathLayer)
+                .attr("fill", d => state.colors[d.group])
+                .attr("opacity", 0.3)
+                .attr("d", d => {
+                    const p = d3.path();
+                    p.moveTo(d.p1.x1, d.p1.y);
+                    p.lineTo(d.p1.x2, d.p1.y);
+                    p.lineTo(d.p2.x2, d.p2.y);
+                    p.lineTo(d.p2.x1, d.p2.y);
+                    p.closePath();
+                    return p.toString();
+                });
+        }
+
+        // --- DRAG LOGIC ---
+
+        function dragSampleStart(event, d) {
+            state.draggedSample = d;
+            d.startY = config.startY + d.slot * config.trackSpacing;
+            d.offsetY = event.y - d.startY;
+            d3.select(`#track-${d.id}`).raise().interrupt();
+        }
+        function dragSample(event, d) {
+            const currentY = event.y - d.offsetY;
+            d.currentDragY = currentY;
+            d3.select(`#track-${d.id}`).attr("transform", `translate(${config.startX}, ${currentY})`);
+
+            // Check for swaps with other slots - more stable overlap check
+            state.samples.forEach(other => {
+                if (other === d) return;
+                const otherY = config.startY + other.slot * config.trackSpacing;
+                
+                // Swap if we cross the midpoint of the other sample
+                if ( (d.slot < other.slot && currentY > otherY - 40) ||
+                     (d.slot > other.slot && currentY < otherY + 40) ) {
+                    const oldSlot = d.slot;
+                    d.slot = other.slot;
+                    other.slot = oldSlot;
+                    render(true);
+                }
+            });
+            renderLinks();
+        }
+        function dragSampleEnd(event, d) {
+            state.draggedSample = null;
+            render();
+        }
+
+        function dragChromStart(event, d) {
+            state.draggedChrom = d;
+            d.offsetX = event.x - d.absX;
+            d3.select(this).raise().interrupt();
+        }
+        function dragChrom(event, d) {
+            const currentX = event.x - d.offsetX;
+            d.currentDragX = currentX;
+            d3.select(this).attr("transform", `translate(${currentX}, 0)`);
+
+            // Logic to find which chromosome to swap with
+            const sample = state.samples.find(s => s.chroms.includes(d));
+            
+            sample.chroms.forEach(other => {
+                if (other === d) return;
+                
+                // Swap if we cross the center of the neighboring chromosome
+                const dCenter = currentX + (d.size * config.scale) / 2;
+                const otherCenter = other.absX + (other.size * config.scale) / 2;
+
+                if ( (d.slot < other.slot && dCenter > otherCenter) ||
+                     (d.slot > other.slot && dCenter < otherCenter) ) {
+                    const oldX = d.x;
+                    d.x = other.x;
+                    other.x = oldX;
+                    render(true);
+                }
+            });
+
+            renderLinks();
+        }
+        function dragChromEnd(event, d) {
+            state.draggedChrom = null;
+            render();
+        }
+
+        // --- SIDEBAR ---
+        function initSidebar() {
+            const container = d3.select("#color-controls");
+            Object.keys(state.colors).forEach(group => {
+                const item = container.append("div").attr("class", "color-item");
+                item.append("span").text(`Group ${group}`);
+                item.append("input")
+                    .attr("type", "color")
+                    .attr("value", state.colors[group])
+                    .on("input", function() {
+                        state.colors[group] = this.value;
+                        render(false);
+                    });
+            });
+
+            d3.select("#toggle-sidebar").on("click", () => {
+                const sb = d3.select("#sidebar");
+                const hidden = sb.classed("hidden");
+                sb.classed("hidden", !hidden);
+                d3.select("#toggle-sidebar").style("left", !hidden ? "10px" : "270px");
+            });
+        }
+
+        initSidebar();
+        render();
+
+    </script>
+</body>
+</html>

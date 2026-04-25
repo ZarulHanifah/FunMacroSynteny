@@ -1,0 +1,194 @@
+:root {
+    --bg-color: #f1f5f9;
+    --text-color: #0f172a;
+    --sidebar-bg: #ffffff;
+    --chrom-gray: #e2e8f0;
+    --accent: #3b82f6;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Sidebars */
+#sidebar-left {
+    width: 350px;
+    background: #fff;
+    border-right: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    z-index: 20;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.02);
+}
+#sidebar-right { border-left: 1px solid #e2e8f0; }
+
+#sidebar-left.hidden { margin-left: -260px; }
+#sidebar-right.hidden { margin-right: -260px; }
+
+.sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sidebar-content {
+    padding: 1.5rem;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.config-section { margin-bottom: 2rem; }
+.config-title { font-weight: 600; font-size: 13px; color: #64748b; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+.color-item { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+.color-item input { border: none; width: 32px; height: 32px; cursor: pointer; background: none; }
+
+.toggle-tab {
+    position: absolute;
+    background: white;
+    border: 1px solid #e2e8f0;
+    padding: 20px 4px;
+    cursor: pointer;
+    z-index: 110;
+    font-size: 14px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+}
+.toggle-tab.left { right: -24px; top: 50%; transform: translateY(-50%); border-left: none; border-radius: 0 8px 8px 0; }
+.toggle-tab.right { left: -24px; top: 50%; transform: translateY(-50%); border-right: none; border-radius: 8px 0 0 8px; box-shadow: -2px 0 5px rgba(0,0,0,0.05); }
+
+/* Main Viz */
+#main {
+    flex-grow: 1;
+    position: relative;
+    padding: 2rem;
+    background: #fff;
+    margin: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    overflow: auto;
+}
+
+.sample-group { cursor: default; }
+.sample-label { font-weight: 600; font-size: 13px; fill: #475569; cursor: ns-resize; }
+
+.chrom-group { cursor: ew-resize; }
+.chrom-bar { fill: var(--chrom-gray); stroke: #cbd5e1; stroke-width: 1px; }
+.chrom-name { font-size: 11px; fill: #64748b; text-anchor: middle; font-weight: 500; }
+
+.block-rect { stroke: none; } /* NO BLACK LINE */
+
+.connector { stroke-width: 0px; pointer-events: none; }
+
+#tooltip {
+    position: absolute;
+    background: #0f172a;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 200;
+}
+.genome-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.genome-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: #f8fafc;
+    border: 1px solid transparent;
+    margin-bottom: 4px;
+}
+.genome-item:hover {
+    background: #f1f5f9;
+}
+.genome-item.is-ref {
+    border-color: #f59e0b;
+    background: #fffbef;
+}
+.genome-item span {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ref-btn {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 3px;
+    padding: 2px 4px;
+    font-size: 9px;
+    cursor: pointer;
+    color: #64748b;
+}
+.ref-btn.active {
+    background: #f59e0b;
+    color: white;
+    border-color: #f59e0b;
+}
+
+.control-row-complex {
+    margin-bottom: 20px;
+}
+.control-row-complex label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+.complex-input {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.complex-input input[type="range"] {
+    flex: 1;
+}
+.complex-input input[type="number"] {
+    padding: 4px 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #1e293b;
+    outline: none;
+}
+.complex-input input[type="number"]:focus {
+    border-color: #3b82f6;
+}
+
+.control-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.control-row label {
+    flex: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #64748b;
+}
+.control-row input[type="range"] {
+    width: 80px;
+    cursor: pointer;
+}
