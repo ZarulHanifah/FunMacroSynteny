@@ -1,0 +1,10 @@
+block_id	seq_id	bin_id	start	end	seq_id2	bin_id2	start2	end2	strand	colour_block
+A	S1-C1	Sample 1	0	1000000	S2-C1	Sample 2	0	1000000	+	A
+A	S2-C1	Sample 2	0	1000000	S3-C1	Sample 3	0	1000000	+	A
+B	S1-C2	Sample 1	0	2000000	S2-C2	Sample 2	0	2000000	+	B
+B	S2-C2	Sample 2	0	2000000	S3-C2	Sample 3	0	2000000	+	B
+C	S1-C3	Sample 1	0	500000	S2-C3	Sample 2	0	500000	+	C
+C	S2-C3	Sample 2	0	500000	S3-C3	Sample 3	0	500000	+	C
+D	S1-C1	Sample 1	1100000	1500000	S2-C2	Sample 2	2100000	2500000	+	D
+D	S2-C2	Sample 2	2100000	2500000	S3-C3	Sample 3	600000	1000000	+	D
+E	S1-C2	Sample 1	2100000	2500000	S3-C1	Sample 3	1100000	1500000	+	E

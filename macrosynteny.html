@@ -120,12 +120,9 @@
         </div>
     </div>
 
-    <script src="macrosynteny.js"></script>
-    <script>
-        /**
-         * SidebarController - A modular UI plugin.
-         * Decouples the sidebar DOM from the core SyntenyViz engine.
-         */
+    <script type="module">
+        import { SyntenyViz } from './src/index.js';
+        
         class SidebarController {
             install(viz) {
                 this.viz = viz;
@@ -134,13 +131,16 @@
                 this._setupSidebars();
                 this._setupData();
 
-                // React to state changes
                 viz.on('dataLoaded', () => {
                     this.updateRefSelector();
                     this.updateFocusList();
                 });
                 viz.on('scaleChanged', (scale) => {
-                    d3.select("#cfg-scale").property("value", scale);
+                    d3.select("#cfg-zoom-slider").property("value", viz.config.zoom);
+                });
+                viz.on('spacingChanged', (spacing) => {
+                    d3.select("#cfg-trackSpacing-slider").property("value", spacing);
+                    d3.select("#cfg-trackSpacing-text").property("value", Math.round(spacing));
                 });
                 viz.on('afterRender', () => {
                     this.updateGenomeList();
@@ -156,8 +156,8 @@
 
             _setupGenomes() {
                 d3.select("#ref-selector").on("change", (e) => {
-                    this.viz.state.refGenomeId = e.target.value;
-                    this.viz.state.focusChroms.clear();
+                    this.viz.store.setRefGenome(e.target.value);
+                    this.viz.store.state.focusChroms.clear();
                     this.updateFocusList();
                     if (this.viz.state.colorMode === "ref") this.viz.applyColoring();
                     else this.viz.render();
@@ -182,19 +182,17 @@
                     this.viz.render(false);
                 });
 
-                // Syteny sizes
                 const synSlider = d3.select("#cfg-minSynteny-slider");
                 const synText = d3.select("#cfg-minSynteny-text");
                 const sync = (val) => {
-                    this.viz.state.minSyntenySize = parseInt(val) || 0;
-                    synSlider.property("value", this.viz.state.minSyntenySize);
-                    synText.property("value", this.viz.state.minSyntenySize);
+                    this.viz.store.setMinSyntenySize(parseInt(val) || 0);
+                    synSlider.property("value", val);
+                    synText.property("value", val);
                     this.viz.render();
                 };
                 synSlider.on("input", (e) => sync(e.target.value));
                 synText.on("input", (e) => sync(e.target.value));
 
-                // General Layout Sliders (Paired with numbers)
                 const layoutControls = [
                     { key: 'trackSpacing', baseId: '#cfg-trackSpacing' },
                     { key: 'chromMargin', baseId: '#cfg-chromMargin' },
@@ -208,24 +206,15 @@
                     const sync = (val) => {
                         const parsed = parseFloat(val);
                         this.viz.config[ctrl.key] = parsed;
-                        
-                        // If we are updating zoom, we must recalculate scale in the engine or here
                         if (ctrl.key === 'zoom') {
                             this.viz.config.scale = (this.viz.state.baseScale || 0.0001) * parsed;
                         }
-
                         slider.property("value", parsed);
                         text.property("value", parsed);
                         this.viz.render(false);
                     };
                     slider.on("input", (e) => sync(e.target.value));
                     text.on("change", (e) => sync(e.target.value));
-                });
-
-                this.viz.on('afterRender', (scene) => {
-                    // Keep sidebar numbers in sync even after external scale changes (like autoScaleToFit)
-                    d3.select("#cfg-zoom-slider").property("value", this.viz.config.zoom || 1);
-                    d3.select("#cfg-zoom-text").property("value", this.viz.config.zoom || 1);
                 });
             }
 
@@ -248,8 +237,13 @@
                 const select = d3.select("#ref-selector");
                 select.selectAll("*").remove();
                 this.viz.state.samples.forEach(s => {
-                    select.append("option").attr("value", s.id).text(s.name);
+                    select.append("option")
+                        .attr("value", s.id)
+                        .text(s.name)
+                        .property("selected", s.id === this.viz.state.refGenomeId);
                 });
+                // Ensure dropdown matches actual state
+                select.property("value", this.viz.state.refGenomeId);
             }
 
             updateFocusList() {
@@ -289,18 +283,18 @@
             }
         }
 
-        // Initialize Visualization
-        const viz = new SyntenyViz("#main");
+        const viz = new SyntenyViz("#viz");
         viz.use(new SidebarController());
         
-        // Demo setup if no data baked in
-        if (!window.bakedData) {
-            const demoRows = d3.tsvParse(`block_id	bin_id	seq_id	start	end	bin_id2	seq_id2	start2	end2
+        if (window.bakedData) {
+            viz.setData(window.bakedData);
+        } else {
+            const demoTsv = `block_id	bin_id	seq_id	start	end	bin_id2	seq_id2	start2	end2
 A	S1	Chr 1	0	1000000	S2	Chr 1	0	1000000
 B	S1	Chr 2	0	2000000	S2	Chr 2	0	2000000
 C	S1	Chr 3	0	500000	S2	Chr 3	0	500000
-C	S1	Chr 3	0	500000	S2	Chr 2	2000000	2500000`);
-            viz.setData(demoRows);
+C	S1	Chr 3	0	500000	S2	Chr 2	2000000	2500000`;
+            viz.setData(demoTsv);
         }
     </script>
 </body>
