@@ -63,9 +63,13 @@ export class TrackRenderer {
 
         tracksMerged.select(".track-label").text(d => d.name);
         
-        tracksMerged.filter(d => d !== state.draggedSample)
-            .transition().duration(duration)
-            .attr("transform", d => `translate(${config.startX}, ${config.startY + d.visualSlot * config.trackSpacing})`);
+        let selection = tracksMerged.filter(d => d !== state.draggedSample);
+        if (animate) {
+            selection.transition().duration(300)
+                .attr("transform", d => `translate(${config.startX}, ${config.startY + d.visualSlot * config.trackSpacing})`);
+        } else {
+            selection.attr("transform", d => `translate(${config.startX}, ${config.startY + d.visualSlot * config.trackSpacing})`);
+        }
         
         tracksMerged.filter(d => d === state.draggedSample)
             .attr("transform", d => `translate(${config.startX}, ${d.currentDragY})`);
@@ -91,10 +95,17 @@ export class TrackRenderer {
             })
             .on("contextmenu", (e, d) => {
                 e.preventDefault();
-                if (state.focusChroms.has(d.id)) state.focusChroms.delete(d.id);
-                else state.focusChroms.add(d.id);
+                if (d.sampleId !== state.refGenomeId) {
+                    this.viz.showToast(`Your ref genome is ${state.refGenomeId}, can only focus based on its chroms`);
+                    return;
+                }
+                const focused = !state.focusChroms.has(d.id);
+                if (focused) state.focusChroms.add(d.id);
+                else state.focusChroms.delete(d.id);
+                
+                this.viz.showToast(focused ? `Focused on ${d.name}` : `Focus removed for ${d.name}`);
+                this.viz.emit('focusChanged');
                 this.viz.autoScaleToFit();
-                this.viz.render();
             })
             .call(d3.drag()
                 .on("start", function(e, d) {

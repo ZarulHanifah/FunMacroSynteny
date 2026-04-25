@@ -9,8 +9,10 @@
     <link rel="stylesheet" href="macrosynteny.css">
 </head>
 <body>
+    <div id="toaster-container"></div>
+    
+    <button id="toggle-sidebar-left" class="toggle-tab left">⇇</button>
     <div id="sidebar-left" class="sidebar">
-        <button id="toggle-sidebar-left" class="toggle-tab left">⇇</button>
         <div class="sidebar-header">
             <strong>Configuration</strong>
         </div>
@@ -39,6 +41,10 @@
 
             <div class="config-section">
                 <div class="config-title">Genomes</div>
+                <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+                    <button id="btn-genomes-all" class="ref-btn" style="flex: 1; padding: 4px;">Select All</button>
+                    <button id="btn-genomes-none" class="ref-btn" style="flex: 1; padding: 4px;">Clear All</button>
+                </div>
                 <div id="genome-list" class="genome-list"></div>
             </div>
 
@@ -96,8 +102,8 @@
         <div id="viz"></div>
     </div>
 
+    <button id="toggle-sidebar-right" class="toggle-tab right">⇉</button>
     <div id="sidebar-right" class="sidebar">
-        <button id="toggle-sidebar-right" class="toggle-tab right">⇉</button>
         <div class="sidebar-header">
             <strong>Chrom Focus List</strong>
         </div>
@@ -135,6 +141,12 @@
                     this.updateRefSelector();
                     this.updateFocusList();
                 });
+                viz.on('focusChanged', () => {
+                    this.updateFocusList();
+                });
+                viz.on('toast', (msg) => {
+                    this.showToast(msg);
+                });
                 viz.on('scaleChanged', (scale) => {
                     d3.select("#cfg-zoom-slider").property("value", viz.config.zoom);
                 });
@@ -156,11 +168,14 @@
 
             _setupGenomes() {
                 d3.select("#ref-selector").on("change", (e) => {
-                    this.viz.store.setRefGenome(e.target.value);
+                    const newRef = e.target.value;
+                    this.viz.store.setRefGenome(newRef);
                     this.viz.store.state.focusChroms.clear();
                     this.updateFocusList();
+                    this.showToast(`Reference changed to: ${newRef}`);
+                    
                     if (this.viz.state.colorMode === "ref") this.viz.applyColoring();
-                    else this.viz.render();
+                    this.viz.autoScaleToFit();
                 });
             }
 
@@ -216,20 +231,33 @@
                     slider.on("input", (e) => sync(e.target.value));
                     text.on("change", (e) => sync(e.target.value));
                 });
+
+                d3.select("#btn-genomes-all").on("click", () => {
+                    this.viz.state.hiddenGenomes.clear();
+                    this.viz.render();
+                });
+                d3.select("#btn-genomes-none").on("click", () => {
+                    this.viz.state.samples.forEach(s => this.viz.state.hiddenGenomes.add(s.id));
+                    this.viz.render();
+                });
             }
 
             _setupSidebars() {
                 d3.select("#toggle-sidebar-left").on("click", function() {
                     const sb = d3.select("#sidebar-left");
+                    const tab = d3.select(this);
                     const hidden = sb.classed("hidden");
                     sb.classed("hidden", !hidden);
-                    d3.select(this).text(!hidden ? "⇉" : "⇇");
+                    tab.classed("is-hidden", !hidden);
+                    tab.text(!hidden ? "⇉" : "⇇");
                 });
                 d3.select("#toggle-sidebar-right").on("click", function() {
                     const sb = d3.select("#sidebar-right");
+                    const tab = d3.select(this);
                     const hidden = sb.classed("hidden");
                     sb.classed("hidden", !hidden);
-                    d3.select(this).text(!hidden ? "⇇" : "⇉");
+                    tab.classed("is-hidden", !hidden);
+                    tab.text(!hidden ? "⇇" : "⇉");
                 });
             }
 
@@ -249,6 +277,7 @@
             updateFocusList() {
                 const container = d3.select("#chrom-focus-list");
                 container.selectAll("*").remove();
+                
                 const ref = this.viz.state.samples.find(s => s.id === this.viz.state.refGenomeId);
                 if (!ref) return;
 
@@ -257,10 +286,13 @@
                     item.append("input").attr("type", "checkbox")
                         .property("checked", this.viz.state.focusChroms.has(c.id))
                         .on("change", (e) => {
-                            if (e.target.checked) this.viz.state.focusChroms.add(c.id);
-                            else this.viz.state.focusChroms.delete(c.id);
+                            if (e.target.checked) {
+                                this.viz.state.focusChroms.add(c.id);
+                                this.showToast(`Focused on ${c.name}`);
+                            } else {
+                                this.viz.state.focusChroms.delete(c.id);
+                            }
                             this.viz.autoScaleToFit();
-                            this.viz.render();
                         });
                     item.append("span").text(c.name);
                 });
@@ -280,6 +312,32 @@
                         });
                     item.append("span").text(s.name).attr("title", s.name);
                 });
+            }
+
+            showToast(msg) {
+                const container = d3.select("#toaster-container");
+                const toast = container.append("div").attr("class", "toast").text(msg);
+                
+                let remaining = 3000;
+                let start = Date.now();
+                let timer;
+
+                const pause = () => {
+                    clearTimeout(timer);
+                    remaining -= Date.now() - start;
+                };
+
+                const resume = () => {
+                    if (remaining <= 0) return;
+                    start = Date.now();
+                    timer = setTimeout(() => {
+                        toast.style("opacity", "0").style("transform", "translateX(20px)");
+                        setTimeout(() => toast.remove(), 500);
+                    }, remaining);
+                };
+
+                toast.on("mouseenter", pause).on("mouseleave", resume);
+                resume();
             }
         }
 

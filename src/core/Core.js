@@ -113,8 +113,11 @@ export class SyntenyViz {
         const container = this.container.node();
         const parent = container ? container.parentNode : null;
         
+        if (container) {
+            this.config.width = container.clientWidth - 64;
+        }
+
         // IMPORTANT: Use the scrollable PARENT (main) height for the fit calculation
-        // because the viz container itself grows with the SVG content.
         const viewHeight = parent ? parent.clientHeight : 800;
         
         if (viewHeight > 0) {
@@ -166,6 +169,8 @@ export class SyntenyViz {
         const spacingTotal = Math.max(0, this.sceneGraph.visibleSamples.length - 1) * this.config.trackSpacing;
         const neededHeight = this.config.startY + spacingTotal + 100;
         this.config.height = Math.max(800, neededHeight);
+        
+        this.svg.attr("width", this.config.width);
         this.svg.attr("height", this.config.height);
 
         this.trackRenderer.render(this.sceneGraph.visibleSamples, animate);
@@ -179,13 +184,20 @@ export class SyntenyViz {
         this.linkRenderer.render(scene.visibleSamples);
     }
 
+    showToast(msg) {
+        this.emit('toast', msg);
+    }
+
     _initResizeHandler() {
-        window.addEventListener('resize', () => {
-            const node = this.container.node();
-            if (node) {
-                this.config.width = node.clientWidth - 64;
-                this.autoScaleToFit();
+        const observer = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                if (entry.target === this.container.node()) {
+                    // contentRect.width is the inner content area (no padding/border)
+                    this.config.width = entry.contentRect.width;
+                    this.autoScaleToFit();
+                }
             }
         });
+        observer.observe(this.container.node());
     }
 }
