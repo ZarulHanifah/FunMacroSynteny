@@ -12,18 +12,21 @@ export class Tooltip {
     show(e, content) {
         this.el.style("display", "block")
             .style("opacity", 1)
-            .html(content)
-            .style("left", (e.pageX + 15) + "px")
-            .style("top", (e.pageY + 15) + "px");
+            .html(content);
+        this.move(e);
     }
 
     move(e) {
         const node = this.el.node();
         const tw = node.offsetWidth;
-        let tx = e.pageX + 15;
-        let ty = e.pageY + 15;
+        const th = node.offsetHeight;
         
-        if (tx + tw > window.innerWidth - 20) tx = e.pageX - tw - 15;
+        let tx = e.clientX + 15;
+        let ty = e.clientY + 15;
+        
+        // Overflow checks
+        if (tx + tw > window.innerWidth - 20) tx = e.clientX - tw - 15;
+        if (ty + th > window.innerHeight - 20) ty = e.clientY - th - 15;
         
         this.el.style("left", tx + "px").style("top", ty + "px");
     }

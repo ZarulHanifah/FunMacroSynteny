@@ -124,8 +124,14 @@ export class SyntenyViz {
             this.config.height = viewHeight - 64;
         }
 
-        this.config.scale = Engine.autoScaleToFit(this.state, this.config);
+        const fitScale = Engine.autoScaleToFit(this.state, this.config);
         this.config.trackSpacing = Engine.autoScaleVertical(this.state, this.config, viewHeight);
+        
+        // Update the base "Perfect Fit" scale
+        this.state.baseScale = fitScale;
+        
+        // Apply current zoom multiplier to the base scale
+        this.config.scale = this.state.baseScale * (this.config.zoom || 1.0);
         
         this.emit('scaleChanged', this.config.scale);
         this.emit('spacingChanged', this.config.trackSpacing);
@@ -168,9 +174,17 @@ export class SyntenyViz {
         // Dynamic Sizing adjustment - Ensure we fit content
         const spacingTotal = Math.max(0, this.sceneGraph.visibleSamples.length - 1) * this.config.trackSpacing;
         const neededHeight = this.config.startY + spacingTotal + 100;
+        
+        // Calculate max horizontal content width
+        const maxTrackWidth = d3.max(this.sceneGraph.visibleSamples, s => {
+            if (!s.visualChroms.length) return 0;
+            const last = s.visualChroms[s.visualChroms.length - 1];
+            return last.absX + (last.size * this.config.scale) + this.config.startX + 100;
+        }) || this.config.width;
+
         this.config.height = Math.max(800, neededHeight);
         
-        this.svg.attr("width", this.config.width);
+        this.svg.attr("width", Math.max(this.config.width, maxTrackWidth));
         this.svg.attr("height", this.config.height);
 
         this.trackRenderer.render(this.sceneGraph.visibleSamples, animate);

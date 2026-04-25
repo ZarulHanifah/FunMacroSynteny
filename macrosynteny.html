@@ -187,6 +187,9 @@
 
                 d3.select("#btn-reset-focus").on("click", () => {
                     this.viz.state.focusChroms.clear();
+                    this.viz.config.zoom = 1.0;
+                    d3.select("#cfg-zoom-slider").property("value", 1.0);
+                    d3.select("#cfg-zoom-text").property("value", 1.0);
                     this.updateFocusList();
                     this.viz.autoScaleToFit();
                     this.viz.render();
