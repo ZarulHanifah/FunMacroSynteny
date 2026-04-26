@@ -23,14 +23,14 @@ export class TrackRenderer {
             .attr("x", -config.startX).attr("y", 0)
             .attr("width", config.startX).attr("height", config.chromHeight)
             .attr("fill", "transparent").style("cursor", "ns-resize");
-        
+
         tracksEnter.append("text").attr("class", "track-label")
             .attr("x", -10).attr("y", config.chromHeight/2)
             .attr("text-anchor", "end").attr("dominant-baseline", "middle")
             .style("pointer-events", "none");
 
         const tracksMerged = tracks.merge(tracksEnter);
-        
+
         // --- Track Dragging Logic ---
         tracksMerged.call(d3.drag()
             .on("start", (e, d) => {
@@ -43,7 +43,7 @@ export class TrackRenderer {
                 const [mx, my] = d3.pointer(e, this.trackLayer.node());
                 d.currentDragY = my - d.dragOffsetY;
                 d3.select(document.getElementById(`track-${d.id}`)).attr("transform", `translate(${config.startX}, ${d.currentDragY})`);
-                
+
                 state.samples.forEach(other => {
                     if (other === d) return;
                     const otherY = config.startY + other.visualSlot * config.trackSpacing;
@@ -62,7 +62,7 @@ export class TrackRenderer {
         );
 
         tracksMerged.select(".track-label").text(d => d.name);
-        
+
         let selection = tracksMerged.filter(d => d !== state.draggedSample);
         if (animate) {
             selection.transition().duration(300)
@@ -70,7 +70,7 @@ export class TrackRenderer {
         } else {
             selection.attr("transform", d => `translate(${config.startX}, ${config.startY + d.visualSlot * config.trackSpacing})`);
         }
-        
+
         tracksMerged.filter(d => d === state.draggedSample)
             .attr("transform", d => `translate(${config.startX}, ${d.currentDragY})`);
 
@@ -96,13 +96,13 @@ export class TrackRenderer {
             .on("contextmenu", (e, d) => {
                 e.preventDefault();
                 if (d.sampleId !== state.refGenomeId) {
-                    this.viz.showToast(`Your ref genome is ${state.refGenomeId}, can only focus based on its chroms`);
+                    this.viz.showToast(`Your ref genome is ${state.refGenomeId}, pick chroms from ${state.refGenomeId}`);
                     return;
                 }
                 const focused = !state.focusChroms.has(d.id);
                 if (focused) state.focusChroms.add(d.id);
                 else state.focusChroms.delete(d.id);
-                
+
                 this.viz.showToast(focused ? `Focused on ${d.name}` : `Focus removed for ${d.name}`);
                 this.viz.emit('focusChanged');
                 this.viz.autoScaleToFit();
@@ -118,7 +118,7 @@ export class TrackRenderer {
                     const [mx] = d3.pointer(e, container.node());
                     d.currentDragX = mx - d.dragOffsetX;
                     d3.select(document.getElementById(`chrom-${sample.id}-${d.id}`)).attr("transform", `translate(${d.currentDragX}, 0)`);
-                    
+
                     const center = d.currentDragX + (d.size * config.scale) / 2;
                     sample.visualChroms.forEach(other => {
                         if (other === d) return;

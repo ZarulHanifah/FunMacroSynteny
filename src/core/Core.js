@@ -18,11 +18,11 @@ export class SyntenyViz {
 
         this.svg = this.container.select("svg").empty() ? this.container.append("svg") : this.container.select("svg");
         this.svg.attr("width", initialWidth).attr("height", initialHeight);
-        
+
         // Setup layers
         this.linkLayer = this.svg.select(".links").empty() ? this.svg.append("g").attr("class", "links") : this.svg.select(".links");
         this.trackLayer = this.svg.select(".tracks").empty() ? this.svg.append("g").attr("class", "tracks") : this.svg.select(".tracks");
-        
+
         this.store = new Store();
         this.state = this.store.state; // Convenience alias
 
@@ -76,7 +76,7 @@ export class SyntenyViz {
 
     setData(tsvText) {
         const { samplesMap, groupToIndex } = Parsers.parseTSV(tsvText);
-        
+
         const samples = [];
         let slot = 0;
         samplesMap.forEach((sInfo, id) => {
@@ -86,7 +86,7 @@ export class SyntenyViz {
 
         this.store.setSamples(samples, groupToIndex);
         this.emit('dataLoaded', samples);
-        
+
         if (samples.length > 0) {
             this.applyColoring();
             // Wait for DOM to settle
@@ -112,27 +112,27 @@ export class SyntenyViz {
     autoScaleToFit() {
         const container = this.container.node();
         const parent = container ? container.parentNode : null;
-        
+
         if (container) {
             this.config.width = container.clientWidth - 64;
         }
 
         // IMPORTANT: Use the scrollable PARENT (main) height for the fit calculation
         const viewHeight = parent ? parent.clientHeight : 800;
-        
+
         if (viewHeight > 0) {
             this.config.height = viewHeight - 64;
         }
 
         const fitScale = Engine.autoScaleToFit(this.state, this.config);
         this.config.trackSpacing = Engine.autoScaleVertical(this.state, this.config, viewHeight);
-        
+
         // Update the base "Perfect Fit" scale
         this.state.baseScale = fitScale;
-        
+
         // Apply current zoom multiplier to the base scale
         this.config.scale = this.state.baseScale * (this.config.zoom || 1.0);
-        
+
         this.emit('scaleChanged', this.config.scale);
         this.emit('spacingChanged', this.config.trackSpacing);
         this.render();
@@ -140,7 +140,7 @@ export class SyntenyViz {
 
     render(animate = true) {
         this.sceneGraph = Engine.calculateScene(this.state, this.config);
-        
+
         // Hard limit check
         if (this.sceneGraph.visibleSamples.length > 15) {
             this.trackLayer.selectAll("*").remove();
@@ -174,7 +174,7 @@ export class SyntenyViz {
         // Dynamic Sizing adjustment - Ensure we fit content
         const spacingTotal = Math.max(0, this.sceneGraph.visibleSamples.length - 1) * this.config.trackSpacing;
         const neededHeight = this.config.startY + spacingTotal + 100;
-        
+
         // Calculate max horizontal content width
         const maxTrackWidth = d3.max(this.sceneGraph.visibleSamples, s => {
             if (!s.visualChroms.length) return 0;
@@ -183,13 +183,13 @@ export class SyntenyViz {
         }) || this.config.width;
 
         this.config.height = Math.max(800, neededHeight);
-        
+
         this.svg.attr("width", Math.max(this.config.width, maxTrackWidth));
         this.svg.attr("height", this.config.height);
 
         this.trackRenderer.render(this.sceneGraph.visibleSamples, animate);
         this.linkRenderer.render(this.sceneGraph.visibleSamples);
-        
+
         this.emit('afterRender', this.sceneGraph);
     }
 

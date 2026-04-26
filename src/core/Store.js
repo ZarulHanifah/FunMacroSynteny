@@ -21,7 +21,7 @@ export class Store {
     setSamples(samples, groupToIndex) {
         this.state.samples = samples;
         this.state.groupToIndex = groupToIndex;
-        
+
         // Ensure refGenomeId is valid for the new samples
         const currentRefExists = samples.some(s => s.id === this.state.refGenomeId);
         if (samples.length > 0 && (!this.state.refGenomeId || !currentRefExists)) {

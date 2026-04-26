@@ -68,7 +68,7 @@ export class Engine {
      */
     static autoScaleToFit(state, config) {
         if (!state.samples.length) return config.scale;
-        
+
         const scene = this.calculateScene(state, config);
         const availableWidth = config.width - config.startX - 100;
         if (scene.visibleSamples.length === 0) return config.scale;
@@ -79,7 +79,7 @@ export class Engine {
         scene.visibleSamples.forEach(s => {
             const seqSize = d3.sum(s.visualChroms, c => c.size);
             const marginSize = Math.max(0, s.visualChroms.length - 1) * config.chromMargin;
-            
+
             if (seqSize > 0) {
                 const scl = Math.max(0, availableWidth - marginSize) / seqSize;
                 if (!scaleAssigned || scl < bestScale) {
@@ -103,7 +103,7 @@ export class Engine {
         const effectiveHeight = viewHeight || config.height;
         const availableHeight = effectiveHeight - config.startY - 100;
         const idealSpacing = availableHeight / (count - 1);
-        
+
         // Clamp between 60px (dense) and 200px (default sparse)
         return Math.max(60, Math.min(200, idealSpacing));
     }
