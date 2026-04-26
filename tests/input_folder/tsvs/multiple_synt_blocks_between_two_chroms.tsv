@@ -1,5 +1,0 @@
-block_id	bin_id	seq_id	start	end	bin_id2	seq_id2	start2	end2
-A	Sample 1	Chr 1	0	100000	Sample 2	Chr 1	0	100000
-B	Sample 1	Chr 1	110000	210000	Sample 2	Chr 1	150000	250000
-C	Sample 1	Chr 1	300000	400000	Sample 2	Chr 1	400000	600000
-D	Sample 1	Chr 1	500000	600000	Sample 2	Chr 1	700000	600000

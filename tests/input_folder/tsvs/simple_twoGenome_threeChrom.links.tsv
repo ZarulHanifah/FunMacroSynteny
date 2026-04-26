@@ -1,5 +1,0 @@
-block_id	seq_id	bin_id	start	end	seq_id2	bin_id2	start2	end2	strand	colour_block
-A	S1-C1	Sample 1	0	1000000	S2-C1	Sample 2	0	1000000	+	A
-B	S1-C2	Sample 1	0	2000000	S2-C2	Sample 2	0	2000000	+	B
-C	S1-C3	Sample 1	0	500000	S2-C3	Sample 2	0	500000	+	C
-C	S1-C3	Sample 1	0	500000	S2-C2	Sample 2	2000000	2500000	+	C
