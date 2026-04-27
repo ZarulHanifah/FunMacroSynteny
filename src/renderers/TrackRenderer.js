@@ -208,7 +208,6 @@ export class TrackRenderer {
                 const size = (b.end - b.start).toLocaleString();
                 this.viz.showToast(`Block ${b.group}: ${b.start.toLocaleString()} - ${b.end.toLocaleString()} (${size} bp)`);
             })
-            .on("mousemove", (e) => {
             .on("mouseout", (e) => {
                 e.stopPropagation();
                 tooltip.hide();
