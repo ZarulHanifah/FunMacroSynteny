@@ -42,7 +42,9 @@ And I think from there, you should be able to figure out how to use it. Enjoy!
 
 ## Future features to add
 - Can we work on PAF formats?! That would be amazing.
+- Rename genomes
 - Save state
+    - Important if we have worked on moving/hiding genomes, renamed genomes, etc.
     - Into separate json file? Exporting to html?
 - Export svg/html.
     - Export to html is a crazy feature. Can embed in websites, and also share with collaborators.
