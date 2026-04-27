@@ -2,7 +2,7 @@
 
 View macrosynteny with fun!
 
-![Demo](./static/images/demo.png)
+![Demo](static/images/demo.png)
 
 
 ## Inspiration
