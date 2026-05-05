@@ -62,6 +62,13 @@
                     </div>
                 </div>
                 <div class="control-row-complex">
+                    <label>Label Size</label>
+                    <div class="complex-input">
+                        <input type="range" id="cfg-labelSize-slider" min="6" max="30" value="11">
+                        <input type="number" id="cfg-labelSize-text" value="11" style="width: 60px;">
+                    </div>
+                </div>
+                <div class="control-row-complex">
                     <label>Chrom Margin</label>
                     <div class="complex-input">
                         <input type="range" id="cfg-chromMargin-slider" min="0" max="200" value="20">
@@ -213,6 +220,7 @@
 
                 const layoutControls = [
                     { key: 'trackSpacing', baseId: '#cfg-trackSpacing' },
+                    { key: 'labelSize', baseId: '#cfg-labelSize' },
                     { key: 'chromMargin', baseId: '#cfg-chromMargin' },
                     { key: 'chromHeight', baseId: '#cfg-chromHeight' },
                     { key: 'zoom', baseId: '#cfg-zoom' }
@@ -297,7 +305,7 @@
                             }
                             this.viz.autoScaleToFit();
                         });
-                    item.append("span").text(c.name);
+                    item.append("span").text((c.marker ? c.marker + " " : "") + c.name);
                 });
             }
 

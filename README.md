@@ -42,12 +42,11 @@ And I think from there, you should be able to figure out how to use it. Enjoy!
 
 ## Future features to add
 - `.links.tsv` actually focuses only on syntenic blocks, it ignores total length info. Say a 1 Mb contig has syntenic block from position 1 to 5 Mb, then we should have gray region of 5 Mb downstream.
-    - I think in our implementation, it will only show 5 Mb contig
+    - Okay, this is resolved, but now the use case is slightly going to change: massage -> display
 - Turns out `.links.tsv` format is actually generated from ntsynt-viz. Is there a workable format from ntsynt without running ntsynt-viz?
 - Run an algo to optimize rearranging the chroms, prioritizing chroms of higher synteny with another chrom?
 - It kinda suck to run python -m http.server. Can we like: funmacrosynteny run [ -p [PORT, default 8000] ]
 - Can we work on PAF formats?! That would be amazing.
-- Rename genomes
 - There are some usecases to include some other metadata. For example, we can see the genomic rearrangement, but we need tidk to confirm that the chrom is T2T. How to indicate if that chrom is T2T?
 - ntSynt-viz actually got a 'genome sorting formula' to rearrange the chroms, but I think that is global. We want one that when applied to a genome, only applies the formula based on the adjacent genomes only
 - Hover info should also indicate chrom name. Toast message click should report `syn_block [chrom:start-stop]` 

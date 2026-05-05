@@ -1,0 +1,10 @@
+block_id	bin_id	seq_id	start	end	bin_id2	seq_id2	start2	end2
+A	Sample 1	S1-C1	0	1000000	Sample 2	S2-C1	0	1000000
+B	Sample 1	S1-C2	0	2000000	Sample 2	S2-C2	0	2000000
+nonsyn_1	Sample 1	S1-C2	2000000	2500000	null	null	null	null
+C	Sample 1	S1-C3	0	500000	Sample 2	S2-C3	0	500000
+C	Sample 1	S1-C3	0	500000	Sample 2	S2-C2	2000000	2500000
+nonsyn_2	Sample 2	S2-C1	1000000	1500000	null	null	null	null
+nonsyn_3	Sample 2	S2-C2	2500000	3000000	null	null	null	null
+nonsyn_4	Sample 2	S2-C3	500000	1000000	null	null	null	null
+

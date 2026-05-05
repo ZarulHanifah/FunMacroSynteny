@@ -33,6 +33,7 @@ export class SyntenyViz {
                 trackSpacing: 180,
                 chromHeight: 25,
                 chromMargin: 20,
+                labelSize: 11,
                 scale: 0.0001,
                 startX: 200,
                 startY: 100,
@@ -196,6 +197,12 @@ export class SyntenyViz {
     renderLinks() {
         const scene = this.sceneGraph || Engine.calculateScene(this.state, this.config);
         this.linkRenderer.render(scene.visibleSamples);
+    }
+
+    renameGenome(id, name) {
+        this.store.renameGenome(id, name);
+        this.emit('genomeRenamed', { id, name });
+        this.render(false);
     }
 
     showToast(msg) {

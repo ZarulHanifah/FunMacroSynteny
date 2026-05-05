@@ -18,15 +18,22 @@ export class TrackRenderer {
         const tracksEnter = tracks.enter().append("g").attr("class", "track-group")
             .attr("id", d => `track-${d.id}`);
 
-        // Handles for drag
-        tracksEnter.append("rect")
+        // Handles for drag and rename
+        tracksEnter.append("rect").attr("class", "track-hit-area")
             .attr("x", -config.startX).attr("y", 0)
             .attr("width", config.startX).attr("height", config.chromHeight)
-            .attr("fill", "transparent").style("cursor", "ns-resize");
+            .attr("fill", "rgba(0,0,0,0)")
+            .style("cursor", "pointer")
+            .on("contextmenu", (e, d) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this._showRenameInput(e, d);
+            });
 
         tracksEnter.append("text").attr("class", "track-label")
             .attr("x", -10).attr("y", config.chromHeight/2)
             .attr("text-anchor", "end").attr("dominant-baseline", "middle")
+            .style("cursor", "pointer")
             .style("pointer-events", "none");
 
         const tracksMerged = tracks.merge(tracksEnter);
@@ -63,6 +70,16 @@ export class TrackRenderer {
 
         tracksMerged.select(".track-label").text(d => d.name);
 
+        // Localized contextmenu for renaming
+        tracksMerged.on("contextmenu", (e, d) => {
+            // Only trigger if we aren't clicking a chromosome
+            if (e.target.closest(".chrom-group")) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+            this._showRenameInput(e, d);
+        });
+
         let selection = tracksMerged.filter(d => d !== state.draggedSample);
         if (animate) {
             selection.transition().duration(300)
@@ -95,17 +112,8 @@ export class TrackRenderer {
             })
             .on("contextmenu", (e, d) => {
                 e.preventDefault();
-                if (d.sampleId !== state.refGenomeId) {
-                    this.viz.showToast(`Your ref genome is ${state.refGenomeId}, pick chroms from ${state.refGenomeId}`);
-                    return;
-                }
-                const focused = !state.focusChroms.has(d.id);
-                if (focused) state.focusChroms.add(d.id);
-                else state.focusChroms.delete(d.id);
-
-                this.viz.showToast(focused ? `Focused on ${d.name}` : `Focus removed for ${d.name}`);
-                this.viz.emit('focusChanged');
-                this.viz.autoScaleToFit();
+                e.stopPropagation();
+                this._showChromContextMenu(e, d);
             })
             .call(d3.drag()
                 .on("start", function(e, d) {
@@ -169,7 +177,8 @@ export class TrackRenderer {
             })
             .on("mouseout", () => this.viz.tooltip.hide());
 
-        chromsEnter.append("text").attr("class", "chrom-name").attr("y", config.chromHeight + 15);
+        chromsEnter.append("text").attr("class", "chrom-name")
+            .attr("dominant-baseline", "hanging");
 
         const chromsMerged = chroms.merge(chromsEnter);
         
@@ -186,7 +195,9 @@ export class TrackRenderer {
         
         chromsMerged.select(".chrom-name")
             .attr("x", d => (d.size * config.scale) / 2)
-            .text(d => d.name + (d.inverted ? " (rev)" : ""))
+            .attr("y", config.chromHeight + 5)
+            .style("font-size", `${config.labelSize}px`)
+            .text(d => (d.marker ? d.marker + " " : "") + d.name + (d.inverted ? " (rev)" : ""))
             .attr("opacity", config.showLabels ? 1 : 0);
 
         this._renderBlocks(chromsMerged);
@@ -219,5 +230,147 @@ export class TrackRenderer {
             })
             .attr("width", b => (b.end - b.start) * config.scale)
             .attr("fill", b => b.linked ? (state.colors[b.group] || "#e2e8f0") : "#cbd5e1");
+    }
+
+    _showRenameInput(event, sample) {
+        // Remove any existing rename inputs
+        d3.selectAll(".rename-input-container").remove();
+
+        const container = d3.select("body").append("div")
+            .attr("class", "rename-input-container")
+            .style("left", `${event.clientX}px`)
+            .style("top", `${event.clientY}px`);
+
+        const input = container.append("input")
+            .attr("class", "rename-input")
+            .attr("type", "text")
+            .attr("value", sample.name);
+
+        input.node().focus();
+        input.node().select();
+
+        const submit = () => {
+            const newName = input.property("value").trim();
+            if (newName && newName !== sample.name) {
+                this.viz.renameGenome(sample.id, newName);
+                this.viz.showToast(`Renamed ${sample.id} to ${newName}`);
+            }
+            container.remove();
+        };
+
+        input.on("keydown", (e) => {
+            if (e.key === "Enter") submit();
+            if (e.key === "Escape") container.remove();
+        });
+
+        // Close when clicking outside
+        setTimeout(() => {
+            d3.select(window).on("click.rename-closer", (e) => {
+                if (!container.node().contains(e.target)) {
+                    container.remove();
+                    d3.select(window).on("click.rename-closer", null);
+                }
+            });
+        }, 10);
+    }
+
+    _showChromContextMenu(event, d) {
+        const { state } = this.viz;
+        d3.selectAll(".context-menu").remove();
+
+        const menu = d3.select("body").append("div")
+            .attr("class", "context-menu")
+            .style("left", `${event.clientX}px`)
+            .style("top", `${event.clientY}px`);
+
+        // Option 1: Focus/Unfocus
+        const isFocused = state.focusChroms.has(d.id);
+        const focusItem = menu.append("div").attr("class", "context-menu-item")
+            .html(`🎯 ${isFocused ? 'Remove Focus' : 'Focus Chromosome'}`);
+        
+        focusItem.on("click", () => {
+            if (d.sampleId !== state.refGenomeId) {
+                this.viz.showToast(`Your ref genome is ${state.refGenomeId}, pick chroms from ${state.refGenomeId}`);
+                menu.remove();
+                return;
+            }
+            if (isFocused) state.focusChroms.delete(d.id);
+            else state.focusChroms.add(d.id);
+
+            this.viz.showToast(isFocused ? `Focus removed for ${d.name}` : `Focused on ${d.name}`);
+            this.viz.emit('focusChanged');
+            this.viz.autoScaleToFit();
+            menu.remove();
+        });
+
+        // Option 2: Reverse Orientation
+        const reverseItem = menu.append("div").attr("class", "context-menu-item")
+            .html(`🔄 ${d.inverted ? 'Restore Orientation' : 'Reverse Orientation'}`);
+        
+        reverseItem.on("click", () => {
+            d.inverted = !d.inverted;
+            this.viz.showToast(`${d.inverted ? 'Reversed' : 'Restored'} orientation for ${d.name}`);
+            this.viz.render();
+            menu.remove();
+        });
+
+        // Option 3: Markers (Submenu)
+        const markerItem = menu.append("div")
+            .attr("class", "context-menu-item has-submenu")
+            .style("border-top", "1px solid #f1f5f9")
+            .style("margin-top", "4px")
+            .html(`🏷️ Set Marker`);
+
+        let submenu = null;
+
+        const removeSubmenu = () => {
+            if (submenu) {
+                submenu.remove();
+                submenu = null;
+            }
+        };
+
+        markerItem.on("mouseenter", () => {
+            removeSubmenu();
+            submenu = menu.append("div").attr("class", "context-menu submenu");
+            
+            const markers = [
+                { icon: "🚩", name: "Red Flag", value: "🚩" },
+                { icon: "✳️", name: "Asterisk", value: "✳️" },
+                { icon: "😊", name: "Smiley", value: "😊" },
+                { icon: "❌", name: "Clear Marker", value: null }
+            ];
+
+            markers.forEach(m => {
+                const mItem = submenu.append("div").attr("class", "context-menu-item")
+                    .html(`${m.icon} ${m.name}`);
+                mItem.on("click", (e) => {
+                    e.stopPropagation();
+                    d.marker = m.value;
+                    this.viz.render();
+                    menu.remove();
+                    this.viz.showToast(m.value ? `Added ${m.name} to ${d.name}` : `Cleared marker for ${d.name}`);
+                });
+            });
+
+            // Prevent submenu from closing when hovering over it
+            submenu.on("mouseenter", () => {
+                // Keep it open
+            });
+        });
+
+        // Other items should close the submenu
+        focusItem.on("mouseenter", removeSubmenu);
+        reverseItem.on("mouseenter", removeSubmenu);
+
+        // Close when clicking outside
+        setTimeout(() => {
+            d3.select(window).on("click.menu-closer", (e) => {
+                if (!menu.node().contains(e.target)) {
+                    menu.remove();
+                    d3.select(window).on("click.menu-closer", null);
+                }
+            });
+        }, 10);
     }
 }

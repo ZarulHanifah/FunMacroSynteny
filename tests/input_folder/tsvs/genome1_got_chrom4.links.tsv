@@ -2,4 +2,4 @@ block_id	bin_id	seq_id	start	end	bin_id2	seq_id2	start2	end2
 A	Sample 1	Chr 1	0	1000000	Sample 2	Chr 1	0	1000000
 B	Sample 1	Chr 2	0	2000000	Sample 2	Chr 2	0	2000000
 C	Sample 1	Chr 3	0	500000	Sample 2	Chr 3	0	500000
-D	Sample 1	Chr 4	0	800000	Sample 2	null	null	0	0
+D	Sample 1	Chr 4	0	800000	null	null	null	null

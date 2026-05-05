@@ -68,4 +68,11 @@ export class Store {
     setDraggedChrom(chrom) {
         this.state.draggedChrom = chrom;
     }
+
+    renameGenome(id, name) {
+        const sample = this.state.samples.find(s => s.id === id);
+        if (sample) {
+            sample.name = name;
+        }
+    }
 }
