@@ -140,7 +140,10 @@ body {
 
 .chrom-group { cursor: ew-resize; }
 .chrom-bar { fill: var(--chrom-gray); stroke: #cbd5e1; stroke-width: 1px; }
-.chrom-name { font-size: 11px; fill: #64748b; text-anchor: middle; font-weight: 500; }
+.chrom-name { 
+    font-size: 11px; fill: #1e293b; text-anchor: middle; font-weight: 600;
+}
+.chrom-label-bg { pointer-events: none; }
 
 .block-rect { stroke: none; } /* NO BLACK LINE */
 

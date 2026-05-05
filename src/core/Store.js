@@ -13,6 +13,7 @@ export class Store {
             minSyntenySize: 0,
             colorMode: "ref",
             groupToIndex: new Map(),
+            userColors: {},
             draggedSample: null,
             draggedChrom: null
         };
@@ -74,5 +75,10 @@ export class Store {
         if (sample) {
             sample.name = name;
         }
+    }
+
+    updateGroupColor(groupId, color) {
+        this.state.userColors[groupId] = color;
+        this.state.colors[groupId] = color;
     }
 }

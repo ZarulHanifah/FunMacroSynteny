@@ -149,7 +149,7 @@ export class TrackRenderer {
             .attr("height", config.chromHeight).attr("rx", 4)
             .style("cursor", "pointer")
             .on("mouseover", (e, d) => {
-                this.viz.tooltip.show(e, `<strong>${d.name}</strong><br>Total Size: ${d3.format(",")(d.size)} bp`);
+                this.viz.tooltip.show(e, `<strong>Chromosome: ${d.name}</strong><br>Total Size: ${d3.format(",")(d.size)} bp`);
             })
             .on("mousemove", (e, d) => {
                 const [mx] = d3.pointer(e);
@@ -169,7 +169,8 @@ export class TrackRenderer {
                 }
 
                 this.viz.tooltip.show(e, `
-                    <strong>${d.name} (Non-syntenic)</strong><br>
+                    <strong>Chromosome: ${d.name}</strong><br>
+                    <em>Non-syntenic region</em><br>
                     Start: ${start.toLocaleString()}<br>
                     End: ${end.toLocaleString()}<br>
                     Size: ${(end - start).toLocaleString()} bp
@@ -177,6 +178,9 @@ export class TrackRenderer {
             })
             .on("mouseout", () => this.viz.tooltip.hide());
 
+        chromsEnter.append("rect").attr("class", "chrom-label-bg")
+            .attr("fill", "rgba(255, 255, 255, 0.8)")
+            .attr("rx", 3);
         chromsEnter.append("text").attr("class", "chrom-name")
             .attr("dominant-baseline", "hanging");
 
@@ -191,14 +195,25 @@ export class TrackRenderer {
             .attr("transform", d => `translate(${d.currentDragX}, 0)`);
 
         chromsMerged.select(".chrom-bar")
-            .attr("width", d => d.size * config.scale);
+            .attr("width", d => d.size * config.scale)
+            .style("stroke-width", `${config.chromStrokeWidth}px`)
+            .style("stroke", config.chromStrokeWidth > 0 ? "black" : "#cbd5e1");
         
         chromsMerged.select(".chrom-name")
             .attr("x", d => (d.size * config.scale) / 2)
-            .attr("y", config.chromHeight + 5)
+            .attr("y", config.chromHeight + (config.chromStrokeWidth / 2) + 8)
             .style("font-size", `${config.labelSize}px`)
             .text(d => (d.marker ? d.marker + " " : "") + d.name + (d.inverted ? " (rev)" : ""))
-            .attr("opacity", config.showLabels ? 1 : 0);
+            .attr("opacity", config.showLabels ? 1 : 0)
+            .each(function() {
+                const bbox = this.getBBox();
+                d3.select(this.parentNode).select(".chrom-label-bg")
+                    .attr("x", bbox.x - 6)
+                    .attr("y", bbox.y - 2)
+                    .attr("width", bbox.width + 12)
+                    .attr("height", bbox.height + 4)
+                    .attr("opacity", config.showLabels ? 1 : 0);
+            });
 
         this._renderBlocks(chromsMerged);
     }
@@ -212,12 +227,19 @@ export class TrackRenderer {
             .on("mouseover", (e, b) => {
                 e.stopPropagation();
                 const size = (b.end - b.start).toLocaleString();
-                tooltip.show(e, `<strong>Block: ${b.group}</strong><br>Start: ${b.start.toLocaleString()}<br>End: ${b.end.toLocaleString()}<br>Size: ${size} bp<br>Inverted: ${b.inverted}`);
+                tooltip.show(e, `<strong>${b.chromId}</strong><br>Block: ${b.group}<br>Start: ${b.start.toLocaleString()}<br>End: ${b.end.toLocaleString()}<br>Size: ${size} bp<br>Inverted: ${b.inverted}`);
             })
             .on("click", (e, b) => {
                 e.stopPropagation();
                 const size = (b.end - b.start).toLocaleString();
-                this.viz.showToast(`Block ${b.group}: ${b.start.toLocaleString()} - ${b.end.toLocaleString()} (${size} bp)`);
+                this.viz.showToast(`${b.chromId}:${b.start.toLocaleString()}-${b.end.toLocaleString()} [Block ${b.group}, size = ${size} bp]`);
+            })
+            .on("contextmenu", (e, b) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Get the parent chromosome datum
+                const chrom = d3.select(e.currentTarget.parentNode).datum();
+                this._showChromContextMenu(e, chrom, b);
             })
             .on("mouseout", (e) => {
                 e.stopPropagation();
@@ -274,7 +296,7 @@ export class TrackRenderer {
         }, 10);
     }
 
-    _showChromContextMenu(event, d) {
+    _showChromContextMenu(event, d, b = null) {
         const { state } = this.viz;
         d3.selectAll(".context-menu").remove();
 
@@ -283,11 +305,49 @@ export class TrackRenderer {
             .style("left", `${event.clientX}px`)
             .style("top", `${event.clientY}px`);
 
+        let submenu = null;
+        const removeSubmenu = () => {
+            if (submenu) {
+                submenu.remove();
+                submenu = null;
+            }
+        };
+
+        // If a block was right-clicked, add the color option first
+        if (b) {
+            const colorItem = menu.append("div").attr("class", "context-menu-item")
+                .style("border-bottom", "1px solid #f1f5f9")
+                .style("margin-bottom", "4px")
+                .style("background", "#f8fafc")
+                .html(`🎨 Change Color (Group ${b.group})`);
+            
+            colorItem.on("mouseenter", removeSubmenu);
+            colorItem.on("click", () => {
+                const picker = d3.select("body").append("input")
+                    .attr("type", "color")
+                    .style("position", "fixed")
+                    .style("opacity", 0)
+                    .attr("value", this.viz.state.colors[b.group] || "#3b82f6");
+
+                picker.on("input", () => {
+                    this.viz.updateGroupColor(b.group, picker.property("value"));
+                });
+
+                picker.on("change", () => {
+                    picker.remove();
+                    menu.remove();
+                });
+
+                picker.node().click();
+            });
+        }
+
         // Option 1: Focus/Unfocus
         const isFocused = state.focusChroms.has(d.id);
         const focusItem = menu.append("div").attr("class", "context-menu-item")
             .html(`🎯 ${isFocused ? 'Remove Focus' : 'Focus Chromosome'}`);
         
+        focusItem.on("mouseenter", removeSubmenu);
         focusItem.on("click", () => {
             if (d.sampleId !== state.refGenomeId) {
                 this.viz.showToast(`Your ref genome is ${state.refGenomeId}, pick chroms from ${state.refGenomeId}`);
@@ -307,6 +367,7 @@ export class TrackRenderer {
         const reverseItem = menu.append("div").attr("class", "context-menu-item")
             .html(`🔄 ${d.inverted ? 'Restore Orientation' : 'Reverse Orientation'}`);
         
+        reverseItem.on("mouseenter", removeSubmenu);
         reverseItem.on("click", () => {
             d.inverted = !d.inverted;
             this.viz.showToast(`${d.inverted ? 'Reversed' : 'Restored'} orientation for ${d.name}`);
@@ -314,21 +375,41 @@ export class TrackRenderer {
             menu.remove();
         });
 
-        // Option 3: Markers (Submenu)
+        // Option 3: Align with Neighbors
+        const visibleSamples = this.viz.sceneGraph.visibleSamples;
+        const targetIdx = visibleSamples.findIndex(s => s.id === d.sampleId);
+        
+        if (targetIdx !== -1) {
+            const neighbors = [];
+            if (targetIdx > 0) neighbors.push({ type: 'Above', sample: visibleSamples[targetIdx - 1] });
+            if (targetIdx < visibleSamples.length - 1) neighbors.push({ type: 'Below', sample: visibleSamples[targetIdx + 1] });
+
+            neighbors.forEach(n => {
+                const alignItem = menu.append("div").attr("class", "context-menu-item")
+                    .html(`📏 Align to ${n.sample.name} (${n.type})`);
+                
+                const node = alignItem.node();
+                node.onmouseenter = () => removeSubmenu();
+                node.onclick = (e) => {
+                    e.stopPropagation();
+                    console.log(`Attempting align: ${d.sampleId} -> ${n.sample.id}`);
+                    try {
+                        this.viz.sortChromosomesByNeighbor(d.sampleId, n.sample.id);
+                        menu.remove();
+                    } catch (err) {
+                        console.error("Alignment error:", err);
+                        this.viz.showToast("Alignment failed: " + err.message);
+                    }
+                };
+            });
+        }
+
+        // Option 4: Markers (Submenu)
         const markerItem = menu.append("div")
             .attr("class", "context-menu-item has-submenu")
             .style("border-top", "1px solid #f1f5f9")
             .style("margin-top", "4px")
             .html(`🏷️ Set Marker`);
-
-        let submenu = null;
-
-        const removeSubmenu = () => {
-            if (submenu) {
-                submenu.remove();
-                submenu = null;
-            }
-        };
 
         markerItem.on("mouseenter", () => {
             removeSubmenu();
@@ -352,16 +433,7 @@ export class TrackRenderer {
                     this.viz.showToast(m.value ? `Added ${m.name} to ${d.name}` : `Cleared marker for ${d.name}`);
                 });
             });
-
-            // Prevent submenu from closing when hovering over it
-            submenu.on("mouseenter", () => {
-                // Keep it open
-            });
         });
-
-        // Other items should close the submenu
-        focusItem.on("mouseenter", removeSubmenu);
-        reverseItem.on("mouseenter", removeSubmenu);
 
         // Close when clicking outside
         setTimeout(() => {
@@ -373,4 +445,5 @@ export class TrackRenderer {
             });
         }, 10);
     }
+
 }

@@ -34,6 +34,7 @@ export class SyntenyViz {
                 chromHeight: 25,
                 chromMargin: 20,
                 labelSize: 11,
+                chromStrokeWidth: 1,
                 scale: 0.0001,
                 startX: 200,
                 startY: 100,
@@ -105,8 +106,19 @@ export class SyntenyViz {
         } else {
             colors = ColorPalettes.applyGlobalColoring(this.state);
         }
+
+        // Apply user overrides
+        Object.keys(this.state.userColors).forEach(groupId => {
+            colors[groupId] = this.state.userColors[groupId];
+        });
+
         this.store.updateColoring(colors);
         this.emit('colorChanged', colors);
+        this.render(false);
+    }
+
+    updateGroupColor(groupId, color) {
+        this.store.updateGroupColor(groupId, color);
         this.render(false);
     }
 
@@ -188,8 +200,8 @@ export class SyntenyViz {
         this.svg.attr("width", Math.max(this.config.width, maxTrackWidth));
         this.svg.attr("height", this.config.height);
 
-        this.trackRenderer.render(this.sceneGraph.visibleSamples, animate);
         this.linkRenderer.render(this.sceneGraph.visibleSamples);
+        this.trackRenderer.render(this.sceneGraph.visibleSamples, animate);
 
         this.emit('afterRender', this.sceneGraph);
     }
@@ -203,6 +215,65 @@ export class SyntenyViz {
         this.store.renameGenome(id, name);
         this.emit('genomeRenamed', { id, name });
         this.render(false);
+    }
+
+    /**
+     * Rearranges chromosomes of a target genome to align with a neighbor.
+     */
+    sortChromosomesByNeighbor(targetId, neighborId) {
+        const targetSample = this.store.state.samples.find(s => s.id === targetId);
+        const neighborSample = this.store.state.samples.find(s => s.id === neighborId);
+        
+        if (!targetSample || !neighborSample) {
+            console.error("Samples not found", { targetId, neighborId });
+            return;
+        }
+
+        // neighborSample.chroms is an array of chromosome objects
+        const neighborChroms = [...neighborSample.chroms];
+        neighborChroms.sort((a, b) => (a.x_index || 0) - (b.x_index || 0));
+
+        const neighborOffsets = new Map();
+        let currentX = 0;
+        neighborChroms.forEach(c => {
+            neighborOffsets.set(c.id, currentX);
+            currentX += c.size * this.config.scale + this.config.chromMargin;
+        });
+
+        const chromScores = [];
+        targetSample.chroms.forEach(chrom => {
+            const positions = [];
+            chrom.blocks.forEach(block => {
+                if (!block.linked) return;
+                const group = this.store.state.groupToIndex.get(block.group);
+                if (!group) return;
+
+                const neighborBlock = group.find(b => b.sampleId === neighborId);
+                if (neighborBlock) {
+                    const offset = neighborOffsets.get(neighborBlock.chromId);
+                    if (offset !== undefined) {
+                        const pos = offset + (neighborBlock.start * this.config.scale);
+                        positions.push(pos);
+                    }
+                }
+            });
+
+            if (positions.length > 0) {
+                positions.sort((a, b) => a - b);
+                const median = positions[Math.floor(positions.length / 2)];
+                chromScores.push({ chrom, score: median });
+            } else {
+                chromScores.push({ chrom, score: Infinity });
+            }
+        });
+
+        chromScores.sort((a, b) => a.score - b.score);
+        chromScores.forEach((item, index) => {
+            item.chrom.x_index = index;
+        });
+
+        this.showToast(`Rearranged ${targetSample.name} to align with ${neighborSample.name}`);
+        this.render(true);
     }
 
     showToast(msg) {
