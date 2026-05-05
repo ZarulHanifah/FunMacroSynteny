@@ -139,9 +139,23 @@
             </div>
         </div>
     </div>
+    
+    <div id="export-panel">
+        <span class="export-label">Export</span>
+        <button id="btn-export-svg" class="export-btn">
+            📄 SVG
+        </button>
+        <button id="btn-export-png" class="export-btn primary">
+            🖼️ PNG (300 DPI)
+        </button>
+        <button id="btn-export-html" class="export-btn" style="background: #f0fdf4; border-color: #bbf7d0; color: #166534;">
+            🌐 Interactive HTML
+        </button>
+    </div>
 
     <script type="module">
         import { SyntenyViz } from './src/index.js';
+        import { Exporter } from './src/utils/Exporter.js';
         
         class SidebarController {
             install(viz) {
@@ -150,6 +164,7 @@
                 this._setupControls();
                 this._setupSidebars();
                 this._setupData();
+                this._setupExport();
 
                 viz.on('dataLoaded', () => {
                     this.updateRefSelector();
@@ -357,6 +372,35 @@
 
                 toast.on("mouseenter", pause).on("mouseleave", resume);
                 resume();
+            }
+
+            _setupExport() {
+                d3.select("#btn-export-svg").on("click", () => {
+                    const svgNode = d3.select("#viz svg").node();
+                    if (svgNode) Exporter.exportSVG(svgNode);
+                    else this.showToast("No visualization to export!");
+                });
+
+                d3.select("#btn-export-png").on("click", () => {
+                    const svgNode = d3.select("#viz svg").node();
+                    if (svgNode) {
+                        this.showToast("Generating high-res PNG... please wait.");
+                        Exporter.exportPNG(svgNode);
+                    } else {
+                        this.showToast("No visualization to export!");
+                    }
+                });
+
+                d3.select("#btn-export-html").on("click", async () => {
+                    this.showToast("Packaging analysis report... please wait.");
+                    try {
+                        await Exporter.exportHTML(this.viz);
+                        this.showToast("Report exported successfully!");
+                    } catch (err) {
+                        console.error(err);
+                        this.showToast("Export failed: " + err.message);
+                    }
+                });
             }
         }
 

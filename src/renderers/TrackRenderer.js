@@ -68,7 +68,12 @@ export class TrackRenderer {
             })
         );
 
-        tracksMerged.select(".track-label").text(d => d.name);
+        tracksMerged.select(".track-label")
+            .text(d => d.name)
+            .attr("font-family", "'Inter', sans-serif")
+            .attr("font-weight", "600")
+            .attr("font-size", "13px")
+            .attr("fill", "#475569");
 
         // Localized contextmenu for renaming
         tracksMerged.on("contextmenu", (e, d) => {
@@ -202,16 +207,23 @@ export class TrackRenderer {
         chromsMerged.select(".chrom-name")
             .attr("x", d => (d.size * config.scale) / 2)
             .attr("y", config.chromHeight + (config.chromStrokeWidth / 2) + 8)
+            .attr("text-anchor", "middle")
+            .attr("dominant-baseline", "hanging")
+            .style("font-family", "'Inter', sans-serif")
             .style("font-size", `${config.labelSize}px`)
+            .style("font-weight", "600")
             .text(d => (d.marker ? d.marker + " " : "") + d.name + (d.inverted ? " (rev)" : ""))
             .attr("opacity", config.showLabels ? 1 : 0)
-            .each(function() {
-                const bbox = this.getBBox();
+            .each(function(d) {
+                const labelText = (d.marker ? d.marker + " " : "") + d.name + (d.inverted ? " (rev)" : "");
+                const textWidth = TrackRenderer.measureText(labelText, `600 ${config.labelSize}px 'Inter', sans-serif`);
+                const textHeight = config.labelSize * 1.2;
+                
                 d3.select(this.parentNode).select(".chrom-label-bg")
-                    .attr("x", bbox.x - 6)
-                    .attr("y", bbox.y - 2)
-                    .attr("width", bbox.width + 12)
-                    .attr("height", bbox.height + 4)
+                    .attr("x", (d.size * config.scale) / 2 - textWidth / 2 - 6)
+                    .attr("y", config.chromHeight + (config.chromStrokeWidth / 2) + 8 - 2)
+                    .attr("width", textWidth + 12)
+                    .attr("height", textHeight + 0)
                     .attr("opacity", config.showLabels ? 1 : 0);
             });
 
@@ -444,6 +456,15 @@ export class TrackRenderer {
                 }
             });
         }, 10);
+    }
+
+    static measureText(text, font) {
+        if (!this.canvas) {
+            this.canvas = document.createElement("canvas");
+        }
+        const context = this.canvas.getContext("2d");
+        context.font = font;
+        return context.measureText(text).width;
     }
 
 }
