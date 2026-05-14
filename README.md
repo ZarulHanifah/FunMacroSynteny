@@ -1,65 +1,51 @@
-# FunMacroSynteny
+# FunMacroSynteny 🧬
 
-View macrosynteny with fun!
+View macrosynteny with fun! Transform your structural genomics analysis from static images into a dynamic, interactive experience.
 
 ![Demo](static/images/demo.png)
 
+## Why FunMacroSynteny?
 
-## Inspiration
+We took inspiration from traditional macrosynteny visualizations, which are great for:
+- Comparing different assemblies or parameters.
+- Assessing structural evolution between species.
+- Identifying genomic rearrangements and damage.
 
-We took inspiration from macrosynteny visualization from ntsynt-viz, a very quick and easy way to:
-- Compare effects of using different assemblies/params
-- Assess how much the genomes evolved structurally between different species
-- See how much damage the genomes that make it into NCBI Genbank
+**But static images are a dead end.** We created FunMacroSynteny because genomic analysis should be fluid, interactive, and—most importantly—fun.
 
-but the static image is annoying.
+## 🚀 Quick Start
 
-> "There must be a better way."
-> — *Raymond Hettinger*
+1. **Serve the app**:
+   `python -m http.server 8000`
+2. **Load your data**: Open your browser to `localhost:8000` and load your `.links.tsv` file.
+3. **Explore**: Drag, drop, and right-click to discover structural insights.
 
+## ✨ Premium Features
 
-So, we create FunMacroSynteny because only when it is fun, then it makes it people want to check their genomes.
+### 🎮 Total Interactive Control
+- **Fluid Drag-and-Drop**: Rearrange genomes or individual chromosomes instantly to find the best alignment.
+- **Deep Context Menus**: Right-click any syntenic block or chromosome to:
+  - 🎨 **Change Colors**: Pick custom colors for specific synteny groups.
+  - 🔄 **Reverse Orientation**: Flip chromosomes on the fly.
+  - 🎯 **Focus Mode**: Zero in on specific chromosomes to clear the noise.
+  - 🏷️ **Add Markers**: Tag important regions with red flags or icons.
 
-## Dependencies
+### 📏 Smart Alignment
+- **Neighbor-Sense Sorting**: Don't waste time manual-sorting. Right-click a genome to automatically align its chromosomes based on its neighbors (above or below).
 
-Maybe just python, to serve the web app? And a web browser? That is it! Let the browser work for you!
+### 📸 Publication-Ready Exports
+- **The Export Hub**: A dedicated panel for high-quality outputs:
+  - **300 DPI PNG**: Perfectly sized (18cm width) for journals and posters.
+  - **Vector SVG**: Fully editable vector files with embedded styles for Illustrator or Inkscape.
 
-## Usage
+### 🌍 Interactive Reporting (The "Collaborator Mode")
+- **One-File Portability**: Export your entire analysis as a **single `.html` file**. 
+- **No Server Required**: Share this file with collaborators; they can open it in any browser and use the full interactive engine to explore your data without installing a thing.
 
-Just
-`python -m http.server 8000`
+## 🛠 Dependencies
 
-or any other port.
+- A modern web browser.
+- (Optional) Python to serve the files locally.
 
-You will see an easy demo (like the picture on top). Just load in your `.links.tsv` file from ntsynt. 
-
-And I think from there, you should be able to figure out how to use it. Enjoy!
-
-## Features
-
-- Focus mode. Right click on a chromosome of a ref genome to toggle focus mode on selected chromosome, or select chromosomes to focus on the right sidebar.
-- Click on a block, and a toast message reports the block `start-stop(size)`.
-
-## Future features to add
-- `.links.tsv` actually focuses only on syntenic blocks, it ignores total length info. Say a 1 Mb contig has syntenic block from position 1 to 5 Mb, then we should have gray region of 5 Mb downstream.
-    - Okay, this is resolved, but now the use case is slightly going to change: massage -> display
-- Turns out `.links.tsv` format is actually generated from ntsynt-viz. Is there a workable format from ntsynt without running ntsynt-viz?
-- It kinda suck to run python -m http.server. Can we like: funmacrosynteny run [ -p [PORT, default 8000] ]
-- Can we work on PAF formats?! That would be amazing.
-- ntSynt-viz actually got a 'genome sorting formula' to rearrange the chroms, but I think that is global. We want one that when applied to a genome, only applies the formula based on the adjacent genomes only
-- Hover info should also indicate chrom name. Toast message click should report `syn_block [chrom:start-stop]` 
-- Save state:
-    - Important if we have worked on moving/hiding genomes, renamed genomes, etc.
-    - Into separate json file? Exporting to html?
-- Export svg/html.
-    - Export to html is a crazy feature. Can embed in websites, and also share with collaborators.
-- Change color palette, maybe? Im happy with the colors for now.
-- The chroms are fixed horizontally. Maybe we want to allow the chroms to be positioned differently
-- If I hover a chrom, the cursor shape is like two-way arrow. But I dont want that. It should be that two-way arrow only when I hold a chrom
-- Can we have zoom in behaviour. Only applies with focus mode. So in focus mode, if I two-finger scroll, it zooms into where the cursor is, only expand horizontally.
-    - We will also need a convenient zoom out button.
-- Say I rearrange the chroms of the ref genome in the display, the arrangement of the chroms in the right sidebar needs to reflect that too.
-- Wouldnt it be amazing if I can rearrange genomes not only by holding on the genome labels, but also holding-n-dragging the genome checkbox on the left sidebar?
-    - Maybe rearrange chroms by holding-n-dragging on the right sidebar too?
-- Right click on a synteny block to get color-picker?
-    - So maybe right click should give options on what actions to take: reverse orientation? color?
+---
+*Enjoy your genomic journey. Only when it is fun, do people truly want to check their genomes.*

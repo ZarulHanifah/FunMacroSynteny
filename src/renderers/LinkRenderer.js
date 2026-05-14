@@ -13,24 +13,24 @@ export class LinkRenderer {
         const linksData = [];
         
         const getTrackY = (sampleId) => {
-            const node = document.getElementById(`track-${sampleId}`);
+            const node = document.getElementById(`track-${sampleId.replace(/[^a-zA-Z0-9-]/g, '_')}`);
             if (node) {
                 const transform = d3.select(node).attr("transform");
                 if (transform) {
-                    const match = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+                    const match = transform.match(/translate\(([^,\s]+)[,\s]+([^)]+)\)/);
                     if (match) return parseFloat(match[2]);
                 }
             }
             const s = state.samples.find(sample => sample.id === sampleId);
             return config.startY + (s ? s.visualSlot : 0) * config.trackSpacing;
         };
-
+        
         const getChromX = (sampleId, chromId) => {
-            const node = document.getElementById(`chrom-${sampleId}-${chromId}`);
+            const node = document.getElementById(`chrom-${chromId.replace(/[^a-zA-Z0-9-]/g, '_')}`);
             if (node) {
                 const transform = d3.select(node).attr("transform");
                 if (transform) {
-                    const match = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+                    const match = transform.match(/translate\(([^,\s]+)[,\s]+([^)]+)\)/);
                     if (match) return parseFloat(match[1]);
                 }
             }

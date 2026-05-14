@@ -25,7 +25,8 @@ export class Parsers {
                 if (!bin || bin === "null") return null;
                 if (!samplesMap.has(bin)) samplesMap.set(bin, { id: bin, name: bin, chroms: new Map() });
                 const sample = samplesMap.get(bin);
-                if (!sample.chroms.has(seq)) sample.chroms.set(seq, { id: seq, name: seq, size: 0, blocks: [], sampleId: bin });
+                const chromId = `${bin}||${seq}`;
+                if (!sample.chroms.has(seq)) sample.chroms.set(seq, { id: chromId, name: seq, size: 0, blocks: [], sampleId: bin });
                 const chrom = sample.chroms.get(seq);
                 
                 const startRaw = parseInt(st);
@@ -39,7 +40,7 @@ export class Parsers {
                     inverted: (startRaw > endRaw),
                     linked: hasLink,
                     sampleId: bin,
-                    chromId: seq
+                    chromId: chromId
                 };
                 
                 chrom.size = Math.max(chrom.size, blockObj.end);

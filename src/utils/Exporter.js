@@ -762,7 +762,8 @@ class Parsers {
                 if (!bin || bin === "null") return null;
                 if (!samplesMap.has(bin)) samplesMap.set(bin, { id: bin, name: bin, chroms: new Map() });
                 const sample = samplesMap.get(bin);
-                if (!sample.chroms.has(seq)) sample.chroms.set(seq, { id: seq, name: seq, size: 0, blocks: [], sampleId: bin });
+                const chromId = \`\${bin}||\${seq}\`;
+                if (!sample.chroms.has(seq)) sample.chroms.set(seq, { id: chromId, name: seq, size: 0, blocks: [], sampleId: bin });
                 const chrom = sample.chroms.get(seq);
                 
                 const startRaw = parseInt(st);
@@ -776,7 +777,7 @@ class Parsers {
                     inverted: (startRaw > endRaw),
                     linked: hasLink,
                     sampleId: bin,
-                    chromId: seq
+                    chromId: chromId
                 };
                 
                 chrom.size = Math.max(chrom.size, blockObj.end);
@@ -898,11 +899,11 @@ class TrackRenderer {
         const { config, state } = this.viz;
         const duration = animate ? 300 : 0;
 
-        const tracks = this.trackLayer.selectAll(".track-group").data(visibleSamples, d => d.id);
+        const tracks = this.trackLayer.selectAll(".sample-group").data(visibleSamples, d => d.id);
         tracks.exit().remove();
 
-        const tracksEnter = tracks.enter().append("g").attr("class", "track-group")
-            .attr("id", d => \`track-\${d.id}\`);
+        const tracksEnter = tracks.enter().append("g").attr("class", "sample-group")
+            .attr("id", d => \`track-\${d.id.replace(/[^a-zA-Z0-9-]/g, '_')}\`);
 
         // Handles for drag and rename
         tracksEnter.append("rect").attr("class", "track-hit-area")
@@ -916,7 +917,7 @@ class TrackRenderer {
                 this._showRenameInput(e, d);
             });
 
-        tracksEnter.append("text").attr("class", "track-label")
+        tracksEnter.append("text").attr("class", "sample-label")
             .attr("x", -10).attr("y", config.chromHeight/2)
             .attr("text-anchor", "end").attr("dominant-baseline", "middle")
             .style("cursor", "pointer")
@@ -935,7 +936,7 @@ class TrackRenderer {
             .on("drag", (e, d) => {
                 const [mx, my] = d3.pointer(e, this.trackLayer.node());
                 d.currentDragY = my - d.dragOffsetY;
-                d3.select(document.getElementById(\`track-\${d.id}\`)).attr("transform", \`translate(\${config.startX}, \${d.currentDragY})\`);
+                d3.select(document.getElementById(\`track-\${d.id.replace(/[^a-zA-Z0-9-]/g, '_')}\`)).attr("transform", \`translate(\${config.startX}, \${d.currentDragY})\`);
 
                 state.samples.forEach(other => {
                     if (other === d) return;
@@ -954,7 +955,7 @@ class TrackRenderer {
             })
         );
 
-        tracksMerged.select(".track-label")
+        tracksMerged.select(".sample-label")
             .text(d => d.name)
             .attr("font-family", "'Inter', sans-serif")
             .attr("font-weight", "600")
@@ -991,11 +992,11 @@ class TrackRenderer {
         const { config, state } = this.viz;
         const duration = animate ? 300 : 0;
 
-        const chroms = container.selectAll(".chrom-group").data(sample.visualChroms, d => \`\${sample.id}-\${d.id}\`);
+        const chroms = container.selectAll(".chrom-group").data(sample.visualChroms, d => d.id);
         chroms.exit().remove();
 
         const chromsEnter = chroms.enter().append("g").attr("class", "chrom-group")
-            .attr("id", d => \`chrom-\${sample.id}-\${d.id}\`)
+            .attr("id", d => \`chrom-\${d.id.replace(/[^a-zA-Z0-9-]/g, '_')}\`)
             .on("dblclick", (e, d) => {
                 e.stopPropagation();
                 d.inverted = !d.inverted;
@@ -1016,7 +1017,7 @@ class TrackRenderer {
                 .on("drag", (e, d) => {
                     const [mx] = d3.pointer(e, container.node());
                     d.currentDragX = mx - d.dragOffsetX;
-                    d3.select(document.getElementById(\`chrom-\${sample.id}-\${d.id}\`)).attr("transform", \`translate(\${d.currentDragX}, 0)\`);
+                    d3.select(document.getElementById(\`chrom-\${d.id.replace(/[^a-zA-Z0-9-]/g, '_')}\`)).attr("transform", \`translate(\${d.currentDragX}, 0)\`);
 
                     const center = d.currentDragX + (d.size * config.scale) / 2;
                     sample.visualChroms.forEach(other => {
@@ -1372,11 +1373,11 @@ class LinkRenderer {
         const linksData = [];
         
         const getTrackY = (sampleId) => {
-            const node = document.getElementById(\`track-\${sampleId}\`);
+            const node = document.getElementById(\`track-\${sampleId.replace(/[^a-zA-Z0-9-]/g, '_')}\`);
             if (node) {
                 const transform = d3.select(node).attr("transform");
                 if (transform) {
-                    const match = transform.match(/translate\\(([^,]+),\\s*([^)]+)\\)/);
+                    const match = transform.match(/translate\\(([^,\\s]+)[,\\s]+([^)]+)\\)/);
                     if (match) return parseFloat(match[2]);
                 }
             }
@@ -1385,11 +1386,11 @@ class LinkRenderer {
         };
 
         const getChromX = (sampleId, chromId) => {
-            const node = document.getElementById(\`chrom-\${sampleId}-\${chromId}\`);
+            const node = document.getElementById(\`chrom-\${chromId.replace(/[^a-zA-Z0-9-]/g, '_')}\`);
             if (node) {
                 const transform = d3.select(node).attr("transform");
                 if (transform) {
-                    const match = transform.match(/translate\\(([^,]+),\\s*([^)]+)\\)/);
+                    const match = transform.match(/translate\\(([^,\\s]+)[,\\s]+([^)]+)\\)/);
                     if (match) return parseFloat(match[1]);
                 }
             }
