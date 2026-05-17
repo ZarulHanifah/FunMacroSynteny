@@ -393,12 +393,14 @@
 
                     // Hover preview
                     item.on("mouseenter", () => {
+                        if (this.viz.state.draggedChrom || this.viz.state.draggedSample) return;
                         if (this.viz.state.focusChroms.size > 0 && !this.viz.state.focusChroms.has(c.id)) {
                             this.viz.state.hoveredFocusChromId = c.id;
                             this.viz.autoScaleToFit();
                         }
                     });
                     item.on("mouseleave", () => {
+                        if (this.viz.state.draggedChrom || this.viz.state.draggedSample) return;
                         if (this.viz.state.hoveredFocusChromId === c.id) {
                             this.viz.state.hoveredFocusChromId = null;
                             this.viz.autoScaleToFit();

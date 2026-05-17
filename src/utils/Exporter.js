@@ -969,6 +969,7 @@ class TrackRenderer {
         tracksMerged.call(d3.drag()
             .on("start", (e, d) => {
                 state.draggedSample = d;
+                this.viz.tooltip.hide();
                 const [mx, my] = d3.pointer(e, this.trackLayer.node());
                 d.dragOffsetY = my - (config.startY + d.visualSlot * config.trackSpacing);
                 d3.select(e.sourceEvent.target.parentNode).raise();
@@ -1047,43 +1048,53 @@ class TrackRenderer {
                 e.stopPropagation();
                 this._showChromContextMenu(e, d);
             })
-            .call(d3.drag()
-                .on("start", function(e, d) {
-                    state.draggedChrom = d;
-                    const [mx] = d3.pointer(e, container.node());
-                    d.dragOffsetX = mx - d.absX;
-                    d3.select(this).raise();
-                })
-                .on("drag", (e, d) => {
-                    const [mx] = d3.pointer(e, container.node());
-                    d.currentDragX = mx - d.dragOffsetX;
-                    d3.select(document.getElementById(\`chrom-\${d.id.replace(/[^a-zA-Z0-9-]/g, '_')}\`)).attr("transform", \`translate(\${d.currentDragX}, 0)\`);
+        const self = this;
+        chromsEnter.call(d3.drag()
+            .on("start", function(e, d) {
+                state.draggedChrom = d;
+                self.viz.tooltip.hide();
+                const [mx] = d3.pointer(e, container.node());
+                d.dragOffsetX = mx - d.absX;
+                d3.select(this).raise();
+            })
+            .on("drag", (e, d) => {
+                const [mx] = d3.pointer(e, container.node());
+                d.currentDragX = mx - d.dragOffsetX;
+                d3.select(document.getElementById(\`chrom-\${d.id.replace(/[^a-zA-Z0-9-]/g, '_')}\`)).attr("transform", \`translate(\${d.currentDragX}, 0)\`);
 
-                    const center = d.currentDragX + (d.size * config.scale) / 2;
-                    sample.visualChroms.forEach(other => {
-                        if (other === d) return;
-                        const otherCenter = other.absX + (other.size * config.scale) / 2;
-                        if ((d.x_index < other.x_index && center > otherCenter) || 
-                            (d.x_index > other.x_index && center < otherCenter)) {
-                            const tmp = d.x_index; d.x_index = other.x_index; other.x_index = tmp;
-                            this.viz.render(true);
-                        }
-                    });
-                    this.viz.renderLinks();
-                })
-                .on("end", (e, d) => {
-                    state.draggedChrom = null;
-                    this.viz.render();
-                })
-            );
+                const center = d.currentDragX + (d.size * config.scale) / 2;
+                sample.visualChroms.forEach(other => {
+                    if (other === d) return;
+                    const otherCenter = other.absX + (other.size * config.scale) / 2;
+                    if ((d.x_index < other.x_index && center > otherCenter) || 
+                        (d.x_index > other.x_index && center < otherCenter)) {
+                        const tmp = d.x_index; d.x_index = other.x_index; other.x_index = tmp;
+                        this.viz.render(true);
+                    }
+                });
+                this.viz.renderLinks();
+            })
+            .on("end", (e, d) => {
+                state.draggedChrom = null;
+                this.viz.render();
+            })
+        );
 
         chromsEnter.append("rect").attr("class", "chrom-bar")
             .attr("height", config.chromHeight).attr("rx", 4)
             .style("cursor", "pointer")
             .on("mouseover", (e, d) => {
+                if (state.draggedChrom || state.draggedSample) {
+                    this.viz.tooltip.hide();
+                    return;
+                }
                 this.viz.tooltip.show(e, \`<strong>Chromosome: \${d.name}</strong><br>Total Size: \${d3.format(",")(d.size)} bp\`);
             })
             .on("mousemove", (e, d) => {
+                if (state.draggedChrom || state.draggedSample) {
+                    this.viz.tooltip.hide();
+                    return;
+                }
                 const [mx] = d3.pointer(e);
                 let pos = Math.round(mx / config.scale);
                 if (d.inverted) pos = d.size - pos;
@@ -1168,6 +1179,10 @@ class TrackRenderer {
         blocks.enter().append("rect").attr("class", "block-rect").attr("height", config.chromHeight)
             .on("mouseover", (e, b) => {
                 e.stopPropagation();
+                if (state.draggedChrom || state.draggedSample) {
+                    tooltip.hide();
+                    return;
+                }
                 const size = (b.end - b.start).toLocaleString();
                 tooltip.show(e, \`<strong>\${b.chromId}</strong><br>Block: \${b.group}<br>Start: \${b.start.toLocaleString()}<br>End: \${b.end.toLocaleString()}<br>Size: \${size} bp<br>Inverted: \${b.inverted}\`);
             })

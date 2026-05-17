@@ -45,6 +45,7 @@ export class TrackRenderer {
         (tracksMerged as any).call((d3.drag() as any)
             .on("start", (e: any, d: Sample) => {
                 state.draggedSample = d;
+                this.viz.tooltip.hide();
                 const [mx, my] = d3.pointer(e, this.trackLayer.node());
                 d.dragOffsetY = my - (config.startY + (d.visualSlot ?? 0) * config.trackSpacing);
                 d3.select(e.sourceEvent.target.parentNode).raise();
@@ -124,9 +125,11 @@ export class TrackRenderer {
                 this._showChromContextMenu(e, d);
             });
 
+        const self = this;
         (chromsEnter as any).call((d3.drag() as any)
             .on("start", function(this: any, e: any, d: Chrom) {
                 state.draggedChrom = d;
+                self.viz.tooltip.hide();
                 const [mx] = d3.pointer(e, container.node());
                 d.dragOffsetX = mx - d.absX;
                 d3.select(this).raise();
@@ -158,9 +161,17 @@ export class TrackRenderer {
             .attr("height", config.chromHeight).attr("rx", 4)
             .style("cursor", "pointer")
             .on("mouseover", (e: MouseEvent, d: Chrom) => {
+                if (state.draggedChrom || state.draggedSample) {
+                    this.viz.tooltip.hide();
+                    return;
+                }
                 this.viz.tooltip.show(e, `<strong>Chromosome: ${d.name}</strong><br>Total Size: ${d3.format(",")(d.size)} bp`);
             })
             .on("mousemove", (e: MouseEvent, d: Chrom) => {
+                if (state.draggedChrom || state.draggedSample) {
+                    this.viz.tooltip.hide();
+                    return;
+                }
                 const [mx] = d3.pointer(e);
                 let pos = Math.round(mx / config.scale);
                 if (d.inverted) pos = d.size - pos;
@@ -245,6 +256,10 @@ export class TrackRenderer {
         blocks.enter().append("rect").attr("class", "block-rect").attr("height", config.chromHeight)
             .on("mouseover", (e: MouseEvent, b: any) => {
                 e.stopPropagation();
+                if (state.draggedChrom || state.draggedSample) {
+                    tooltip.hide();
+                    return;
+                }
                 const size = (b.end - b.start).toLocaleString();
                 tooltip.show(e, `<strong>${b.chromId}</strong><br>Block: ${b.group}<br>Start: ${b.start.toLocaleString()}<br>End: ${b.end.toLocaleString()}<br>Size: ${size} bp<br>Inverted: ${b.inverted}`);
             })
