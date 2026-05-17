@@ -18,7 +18,8 @@ export class Store {
             draggedChrom: null,
             scaleBarX: null,
             scaleBarY: null,
-            strandMap: new Map<string, string>()
+            strandMap: new Map<string, string>(),
+            freeFormAlignment: false
         };
     }
 

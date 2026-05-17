@@ -15,7 +15,8 @@ export class Store {
             draggedChrom: null,
             scaleBarX: null,
             scaleBarY: null,
-            strandMap: new Map()
+            strandMap: new Map(),
+            freeFormAlignment: false
         };
     }
     setSamples(samples, groupToIndex, strandMap) {

@@ -23,6 +23,7 @@ export interface Chrom {
   inverted?: boolean;
   currentDragX?: number;
   dragOffsetX?: number;
+  customOffsetBp?: number;
 }
 
 export interface Sample {
@@ -54,6 +55,7 @@ export interface State {
   scaleBarY?: number | null;
   lastFocusKey?: string;
   strandMap: Map<string, string>;
+  freeFormAlignment: boolean;
 }
 
 export interface Config {

@@ -119,24 +119,41 @@ export class TrackRenderer {
             .on("drag", (e, d) => {
             const [mx] = d3.pointer(e, container.node());
             d.currentDragX = mx - (d.dragOffsetX ?? 0);
+            if (state.freeFormAlignment) {
+                const leftSiblings = sample.visualChroms.filter(other => other !== d && (other.x_index ?? 0) < (d.x_index ?? 0)).sort((a, b) => (b.x_index ?? 0) - (a.x_index ?? 0));
+                const rightSiblings = sample.visualChroms.filter(other => other !== d && (other.x_index ?? 0) > (d.x_index ?? 0)).sort((a, b) => (a.x_index ?? 0) - (b.x_index ?? 0));
+                const leftSib = leftSiblings[0];
+                const rightSib = rightSiblings[0];
+                const limitLeft = leftSib ? leftSib.absX + (leftSib.size * config.scale) + config.chromMargin : 0;
+                const limitRight = rightSib ? rightSib.absX - (d.size * config.scale) - config.chromMargin : Infinity;
+                d.currentDragX = Math.max(limitLeft, Math.min(limitRight, d.currentDragX));
+            }
             d3.select(document.getElementById(`chrom-${d.id.replace(/[^a-zA-Z0-9-]/g, '_')}`)).attr("transform", `translate(${d.currentDragX}, 0)`);
-            const center = d.currentDragX + (d.size * config.scale) / 2;
-            sample.visualChroms.forEach(other => {
-                if (other === d)
-                    return;
-                const otherCenter = other.absX + (other.size * config.scale) / 2;
-                if ((d.x_index < other.x_index && center > otherCenter) ||
-                    (d.x_index > other.x_index && center < otherCenter)) {
-                    const tmp = d.x_index;
-                    d.x_index = other.x_index;
-                    other.x_index = tmp;
-                    this.viz.render(true);
-                }
-            });
+            if (!state.freeFormAlignment) {
+                const center = d.currentDragX + (d.size * config.scale) / 2;
+                sample.visualChroms.forEach(other => {
+                    if (other === d)
+                        return;
+                    const otherCenter = other.absX + (other.size * config.scale) / 2;
+                    if ((d.x_index < other.x_index && center > otherCenter) ||
+                        (d.x_index > other.x_index && center < otherCenter)) {
+                        const tmp = d.x_index;
+                        d.x_index = other.x_index;
+                        other.x_index = tmp;
+                        this.viz.render(true);
+                    }
+                });
+            }
+            else {
+                d.absX = d.currentDragX;
+            }
             this.viz.renderLinks();
         })
             .on("end", (e, d) => {
             state.draggedChrom = null;
+            if (state.freeFormAlignment) {
+                d.customOffsetBp = (d.currentDragX ?? d.absX) / config.scale;
+            }
             this.viz.render();
         }));
         chromsEnter.append("rect").attr("class", "chrom-bar")

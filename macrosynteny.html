@@ -54,6 +54,10 @@
                     <label>Show Labels</label>
                     <input type="checkbox" id="cfg-showLabels" checked>
                 </div>
+                <div class="control-row">
+                    <label>Free-form Alignment</label>
+                    <input type="checkbox" id="cfg-freeFormAlignment">
+                </div>
                 <div class="control-row-complex">
                     <label>Track Spacing</label>
                     <div class="complex-input">
@@ -234,6 +238,24 @@
                 d3.select("#cfg-showLabels").on("change", (e) => {
                     this.viz.config.showLabels = e.target.checked;
                     this.viz.render(false);
+                });
+
+                d3.select("#cfg-freeFormAlignment").on("change", (e) => {
+                    this.viz.state.freeFormAlignment = e.target.checked;
+                    if (!e.target.checked) {
+                        this.viz.state.samples.forEach(s => {
+                            s.chroms.forEach(c => {
+                                delete c.customOffsetBp;
+                            });
+                        });
+                    } else {
+                        this.viz.state.samples.forEach(s => {
+                            s.chroms.forEach(c => {
+                                c.customOffsetBp = c.absX / this.viz.config.scale;
+                            });
+                        });
+                    }
+                    this.viz.render(true);
                 });
 
                 const synSlider = d3.select("#cfg-minSynteny-slider");

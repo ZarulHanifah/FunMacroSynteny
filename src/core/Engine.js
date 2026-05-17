@@ -92,8 +92,13 @@ export class Engine {
         visibleSamples.forEach(sample => {
             let currentX = 0;
             sample.visualChroms.sort((a, b) => (a.x_index ?? 0) - (b.x_index ?? 0)).forEach(c => {
-                c.absX = currentX;
-                currentX += (c.size * config.scale) + config.chromMargin;
+                if (state.freeFormAlignment && c.customOffsetBp !== undefined) {
+                    c.absX = c.customOffsetBp * config.scale;
+                }
+                else {
+                    c.absX = currentX;
+                }
+                currentX = c.absX + (c.size * config.scale) + config.chromMargin;
             });
         });
         return { visibleSamples };
