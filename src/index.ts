@@ -1,6 +1,7 @@
 /**
  * FunMacroSynteny - A modular macrosynteny visualization engine.
  */
+
 export { SyntenyViz } from './core/Core.js';
 export { Store } from './core/Store.js';
 export { Engine } from './core/Engine.js';

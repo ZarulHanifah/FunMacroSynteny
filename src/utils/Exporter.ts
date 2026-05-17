@@ -1,20 +1,22 @@
+import type { SyntenyViz } from '../core/Core.js';
+
 /**
  * Exporter.ts - FULL FIDELITY Standalone version in TypeScript.
  */
+
 export class Exporter {
-    static exportSVG(svgNode) {
-        const clone = svgNode.cloneNode(true);
+    static exportSVG(svgNode: SVGElement) {
+        const clone = svgNode.cloneNode(true) as SVGElement;
         this._inlineStyles(clone);
         const serializer = new XMLSerializer();
         let source = serializer.serializeToString(clone);
-        if (!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/))
-            source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
-        if (!source.match(/^<svg[^>]+xmlns\:xlink="http\:\/\/www\.w3\.org\/1999\/xlink"/))
-            source = source.replace(/^<svg/, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+        if (!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+        if (!source.match(/^<svg[^>]+xmlns\:xlink="http\:\/\/www\.w3\.org\/1999\/xlink"/)) source = source.replace(/^<svg/, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
         source = '<?xml version="1.0" standalone="no"?>\r\n' + source;
         this._download("data:image/svg+xml;charset=utf-8," + encodeURIComponent(source), "funmacrosynteny_export.svg");
     }
-    static exportPNG(svgNode) {
+
+    static exportPNG(svgNode: SVGElement) {
         const dpi = 300, targetWidthCm = 18, pixelsPerInch = 300, cmPerInch = 2.54;
         const targetPixelWidth = Math.round((targetWidthCm / cmPerInch) * pixelsPerInch);
         const widthAttr = svgNode.getAttribute("width");
@@ -22,23 +24,22 @@ export class Exporter {
         const svgWidth = widthAttr ? parseFloat(widthAttr) : 800;
         const svgHeight = heightAttr ? parseFloat(heightAttr) : 600;
         const targetPixelHeight = Math.round(targetPixelWidth * (svgHeight / svgWidth));
-        const clone = svgNode.cloneNode(true);
+        const clone = svgNode.cloneNode(true) as SVGElement;
         this._inlineStyles(clone);
         const serializer = new XMLSerializer(), svgData = serializer.serializeToString(clone);
         const canvas = document.createElement("canvas");
-        canvas.width = targetPixelWidth;
-        canvas.height = targetPixelHeight;
+        canvas.width = targetPixelWidth; canvas.height = targetPixelHeight;
         const ctx = canvas.getContext("2d");
         if (ctx) {
-            ctx.fillStyle = "white";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "white"; ctx.fillRect(0, 0, canvas.width, canvas.height);
             const img = new Image();
             const url = URL.createObjectURL(new Blob([svgData], { type: "image/svg+xml;charset=utf-8" }));
             img.onload = () => { ctx.drawImage(img, 0, 0, targetPixelWidth, targetPixelHeight); URL.revokeObjectURL(url); this._download(canvas.toDataURL("image/png"), "funmacrosynteny_export.png"); };
             img.src = url;
         }
     }
-    static async exportHTML(viz) {
+
+    static async exportHTML(viz: SyntenyViz) {
         const state = viz.state;
         const dataPayload = {
             samples: state.samples,
@@ -49,6 +50,7 @@ export class Exporter {
             refGenomeId: state.refGenomeId,
             hiddenGenomes: Array.from(state.hiddenGenomes || [])
         };
+
         const htmlTemplate = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1812,6 +1814,7 @@ class SyntenyViz {
     </script>
 </body>
 </html>`;
+
         const blob = new Blob([htmlTemplate], { type: "text/html" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -1821,32 +1824,28 @@ class SyntenyViz {
         link.click();
         document.body.removeChild(link);
     }
-    static _inlineStyles(svgNode) {
+
+    static _inlineStyles(svgNode: SVGElement) {
         let cssText = "";
         try {
             for (let i = 0; i < document.styleSheets.length; i++) {
                 const sheet = document.styleSheets[i];
-                if (sheet.href && !sheet.href.includes("macrosynteny.css"))
-                    continue;
-                const rules = sheet.cssRules || sheet.rules;
+                if (sheet.href && !sheet.href.includes("macrosynteny.css")) continue;
+                const rules = sheet.cssRules || (sheet as any).rules;
                 if (rules) {
-                    for (let j = 0; j < rules.length; j++)
-                        cssText += rules[j].cssText + "\n";
+                    for (let j = 0; j < rules.length; j++) cssText += rules[j].cssText + "\n";
                 }
             }
-        }
-        catch (e) { }
+        } catch (e) {}
         const style = document.createElement("style");
         style.setAttribute("type", "text/css");
         style.innerHTML = `<![CDATA[\n${cssText}\n]]>`;
         svgNode.insertBefore(style, svgNode.firstChild);
     }
-    static _download(url, filename) {
+
+    static _download(url: string, filename: string) {
         const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        link.href = url; link.download = filename;
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 }

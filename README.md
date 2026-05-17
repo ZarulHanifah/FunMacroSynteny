@@ -47,5 +47,25 @@ We took inspiration from traditional macrosynteny visualizations, which are grea
 - A modern web browser.
 - (Optional) Python to serve the files locally.
 
+## 🛠️ Developer Guide (TypeScript Workflow)
+
+This project is built using TypeScript for robust type-safety and visual scaling logic, while utilizing native browser ES modules so it can run instantly without a complex bundler.
+
+### How to Work with the Codebase:
+1. **Always edit `.ts` files** (located under `src/`):
+   Never edit the compiled `.js` files directly.
+2. **Build the TypeScript files**:
+   To compile the `.ts` files into `.js` files side-by-side:
+   ```bash
+   npm run build
+   ```
+3. **Use Watch Mode during development**:
+   Keep the compiler running in the background. It will automatically recompile `.ts` files to `.js` whenever you save changes:
+   ```bash
+   npm run watch
+   ```
+4. **Git Commits**:
+   Always commit both your `.ts` source files and the compiled `.js` files so that the application remains functional immediately upon cloning.
+
 ---
 *Enjoy your genomic journey. Only when it is fun, do people truly want to check their genomes.*
