@@ -18,6 +18,7 @@ export class Store {
             draggedChrom: null,
             scaleBarX: null,
             scaleBarY: null,
+            hoveredFocusChromId: null,
             strandMap: new Map<string, string>(),
             freeFormAlignment: false
         };

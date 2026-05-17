@@ -165,18 +165,18 @@ body {
 .genome-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 .genome-item {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 11px;
-    padding: 4px 8px;
+    padding: 2px 6px;
     border-radius: 4px;
     background: #f8fafc;
     border: 1px solid transparent;
-    margin-bottom: 4px;
+    margin-bottom: 0px;
 }
 .genome-item:hover {
     background: #f1f5f9;
@@ -189,7 +189,7 @@ body {
     border-color: #f59e0b;
     background: #fffbef;
 }
-.genome-item span {
+.genome-item span:not(.sidebar-drag-handle) {
     flex: 1;
     white-space: nowrap;
     overflow: hidden;

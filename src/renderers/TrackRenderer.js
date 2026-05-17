@@ -374,6 +374,24 @@ export class TrackRenderer {
             this.viz.autoScaleToFit();
             menu.remove();
         });
+        // Option 1b: Select as Reference Genome
+        const isRef = state.refGenomeId === d.sampleId;
+        if (!isRef) {
+            const refItem = menu.append("div").attr("class", "context-menu-item")
+                .html(`🧬 Select as Reference Genome`);
+            refItem.on("mouseenter", removeSubmenu);
+            refItem.on("click", () => {
+                this.viz.store.setRefGenome(d.sampleId);
+                state.focusChroms.clear();
+                if (state.colorMode === "ref") {
+                    this.viz.applyColoring();
+                }
+                this.viz.showToast(`Reference changed to: ${d.sampleId}`);
+                this.viz.emit('refChanged');
+                this.viz.autoScaleToFit();
+                menu.remove();
+            });
+        }
         // Option 2: Reverse Orientation
         const reverseItem = menu.append("div").attr("class", "context-menu-item")
             .html(`🔄 ${d.inverted ? 'Restore Orientation' : 'Reverse Orientation'}`);

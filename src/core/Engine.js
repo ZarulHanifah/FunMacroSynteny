@@ -6,7 +6,7 @@ export class Engine {
         let visibleSamples = state.samples.filter(s => !state.hiddenGenomes.has(s.id));
         const weights = this.calculateWeights(state.groupToIndex);
         const focusSet = new Set(state.focusChroms);
-        if (state.focusChroms.size > 0 && state.hoveredFocusChromId) {
+        if (state.hoveredFocusChromId) {
             focusSet.add(state.hoveredFocusChromId);
         }
         visibleSamples.forEach(s => {

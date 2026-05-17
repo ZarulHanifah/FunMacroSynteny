@@ -9,7 +9,7 @@ export class Engine {
         const weights = this.calculateWeights(state.groupToIndex);
 
         const focusSet = new Set<string>(state.focusChroms);
-        if (state.focusChroms.size > 0 && state.hoveredFocusChromId) {
+        if (state.hoveredFocusChromId) {
             focusSet.add(state.hoveredFocusChromId);
         }
 

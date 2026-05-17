@@ -226,18 +226,18 @@ body {
 .genome-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 .genome-item {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 11px;
-    padding: 4px 8px;
+    padding: 2px 6px;
     border-radius: 4px;
     background: #f8fafc;
     border: 1px solid transparent;
-    margin-bottom: 4px;
+    margin-bottom: 0px;
 }
 .genome-item:hover {
     background: #f1f5f9;
@@ -250,7 +250,7 @@ body {
     border-color: #f59e0b;
     background: #fffbef;
 }
-.genome-item span {
+.genome-item span:not(.sidebar-drag-handle) {
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
@@ -650,7 +650,7 @@ class Engine {
         const weights = this.calculateWeights(state.groupToIndex);
 
         const focusSet = new Set(state.focusChroms);
-        if (state.focusChroms.size > 0 && state.hoveredFocusChromId) {
+        if (state.hoveredFocusChromId) {
             focusSet.add(state.hoveredFocusChromId);
         }
 
@@ -1348,6 +1348,26 @@ class TrackRenderer {
             this.viz.autoScaleToFit();
             menu.remove();
         });
+
+        // Option 1b: Select as Reference Genome
+        const isRef = state.refGenomeId === d.sampleId;
+        if (!isRef) {
+            const refItem = menu.append("div").attr("class", "context-menu-item")
+                .html(\`🧬 Select as Reference Genome\`);
+            
+            refItem.on("mouseenter", removeSubmenu);
+            refItem.on("click", () => {
+                this.viz.store.setRefGenome(d.sampleId);
+                state.focusChroms.clear();
+                if (state.colorMode === "ref") {
+                    this.viz.applyColoring();
+                }
+                this.viz.showToast(\`Reference changed to: \${d.sampleId}\`);
+                this.viz.emit('refChanged');
+                this.viz.autoScaleToFit();
+                menu.remove();
+            });
+        }
 
         // Option 2: Reverse Orientation
         const reverseItem = menu.append("div").attr("class", "context-menu-item")

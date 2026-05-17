@@ -184,6 +184,11 @@
                 viz.on('focusChanged', () => {
                     this.updateFocusList();
                 });
+                viz.on('refChanged', () => {
+                    this.updateRefSelector();
+                    this.updateFocusList();
+                    this.updateGenomeList();
+                });
                 viz.on('toast', (msg) => {
                     this.showToast(msg);
                 });
@@ -416,7 +421,7 @@
                     // Hover preview
                     item.on("mouseenter", () => {
                         if (this.viz.state.draggedChrom || this.viz.state.draggedSample) return;
-                        if (this.viz.state.focusChroms.size > 0 && !this.viz.state.focusChroms.has(c.id)) {
+                        if (!this.viz.state.focusChroms.has(c.id)) {
                             this.viz.state.hoveredFocusChromId = c.id;
                             this.viz.autoScaleToFit();
                         }
