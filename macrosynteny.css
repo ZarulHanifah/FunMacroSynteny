@@ -440,3 +440,26 @@ body {
     border-color: #2563eb;
     color: white;
 }
+
+/* Drag and Drop / Drag Handles */
+.sidebar-drag-handle {
+    cursor: grab;
+    color: #94a3b8;
+    margin-right: 6px;
+    display: inline-flex;
+    align-items: center;
+    user-select: none;
+    transition: color 0.2s ease;
+}
+.sidebar-drag-handle:hover {
+    color: #475569;
+}
+.genome-item.is-dragging {
+    opacity: 0.4;
+    border: 1px dashed #cbd5e1;
+    background: #f1f5f9;
+}
+.genome-item.drag-over {
+    border-top: 2px solid #3b82f6;
+    background: #eff6ff;
+}

@@ -5,9 +5,13 @@ export class Engine {
     static calculateScene(state, config) {
         let visibleSamples = state.samples.filter(s => !state.hiddenGenomes.has(s.id));
         const weights = this.calculateWeights(state.groupToIndex);
+        const focusSet = new Set(state.focusChroms);
+        if (state.focusChroms.size > 0 && state.hoveredFocusChromId) {
+            focusSet.add(state.hoveredFocusChromId);
+        }
         visibleSamples.forEach(s => {
             s.visualChroms = s.chroms.filter(c => {
-                if (state.focusChroms.size === 0) {
+                if (focusSet.size === 0) {
                     if (state.minSyntenySize === 0)
                         return true;
                     return state.samples.some(s2 => {
@@ -19,9 +23,9 @@ export class Engine {
                         });
                     });
                 }
-                if (state.focusChroms.has(c.id))
+                if (focusSet.has(c.id))
                     return true;
-                return Array.from(state.focusChroms).some(fId => {
+                return Array.from(focusSet).some(fId => {
                     const w = weights.get([c.id, fId].sort().join("||"));
                     return w !== undefined && w >= state.minSyntenySize;
                 });

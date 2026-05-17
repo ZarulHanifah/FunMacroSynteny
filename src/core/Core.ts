@@ -51,7 +51,9 @@ export class SyntenyViz {
                 startX: 200,
                 startY: 100,
                 showLabels: true,
-                zoom: 1.0
+                zoom: 1.0,
+                scaleBarMb: 1.0,
+                showScaleBar: true
             },
             ...config
         } as Config;
@@ -150,7 +152,9 @@ export class SyntenyViz {
         const container = this.container.node() as HTMLElement | null;
         const parent = container ? container.parentNode as HTMLElement | null : null;
 
-        if (container) {
+        if (parent) {
+            this.config.width = parent.clientWidth - 64;
+        } else if (container) {
             this.config.width = container.clientWidth - 64;
         }
 
@@ -227,12 +231,93 @@ export class SyntenyViz {
         this.linkRenderer.render(this.sceneGraph.visibleSamples);
         this.trackRenderer.render(this.sceneGraph.visibleSamples, animate);
 
+        this.renderScaleBar();
+
         this.emit('afterRender', this.sceneGraph);
     }
 
     renderLinks() {
         const scene = this.sceneGraph || Engine.calculateScene(this.state, this.config);
         this.linkRenderer.render(scene.visibleSamples);
+    }
+
+    renderScaleBar() {
+        this.svg.selectAll(".scale-bar-group").remove();
+
+        if (this.config.showScaleBar === false) return;
+        if (!this.sceneGraph || this.sceneGraph.visibleSamples.length === 0) return;
+
+        const scaleBarMb = this.config.scaleBarMb !== undefined ? this.config.scaleBarMb : 1.0;
+        const scaleBarBp = scaleBarMb * 1000000;
+        const barWidth = scaleBarBp * this.config.scale;
+
+        const initialX = this.state.scaleBarX !== null && this.state.scaleBarX !== undefined 
+            ? this.state.scaleBarX 
+            : this.config.startX;
+        const initialY = this.state.scaleBarY !== null && this.state.scaleBarY !== undefined 
+            ? this.state.scaleBarY 
+            : this.config.height - 50;
+
+        const scaleBarGroup = this.svg.append("g")
+            .attr("class", "scale-bar-group")
+            .attr("transform", `translate(${initialX}, ${initialY})`)
+            .style("cursor", "move");
+
+        // horizontal bar
+        scaleBarGroup.append("line")
+            .attr("x1", 0)
+            .attr("y1", 0)
+            .attr("x2", barWidth)
+            .attr("y2", 0)
+            .attr("stroke", "#334155")
+            .attr("stroke-width", "2");
+
+        // left tick
+        scaleBarGroup.append("line")
+            .attr("x1", 0)
+            .attr("y1", -4)
+            .attr("x2", 0)
+            .attr("y2", 4)
+            .attr("stroke", "#334155")
+            .attr("stroke-width", "2");
+
+        // right tick
+        scaleBarGroup.append("line")
+            .attr("x1", barWidth)
+            .attr("y1", -4)
+            .attr("x2", barWidth)
+            .attr("y2", 4)
+            .attr("stroke", "#334155")
+            .attr("stroke-width", "2");
+
+        const label = scaleBarMb >= 1.0 
+            ? `${scaleBarMb.toFixed(scaleBarMb % 1 === 0 ? 0 : 1)} Mb`
+            : `${(scaleBarMb * 1000).toFixed(0)} kb`;
+
+        scaleBarGroup.append("text")
+            .attr("x", barWidth / 2)
+            .attr("y", 18)
+            .attr("text-anchor", "middle")
+            .style("font-family", "'Inter', sans-serif")
+            .style("font-size", "12px")
+            .style("font-weight", "600")
+            .style("fill", "#475569")
+            .style("user-select", "none")
+            .text(label);
+
+        // Make it draggable
+        const dragHandler = d3.drag()
+            .on("drag", (event) => {
+                const currentX = (this.state.scaleBarX !== null && this.state.scaleBarX !== undefined ? this.state.scaleBarX : this.config.startX) + event.dx;
+                const currentY = (this.state.scaleBarY !== null && this.state.scaleBarY !== undefined ? this.state.scaleBarY : this.config.height - 50) + event.dy;
+                
+                this.state.scaleBarX = currentX;
+                this.state.scaleBarY = currentY;
+                
+                scaleBarGroup.attr("transform", `translate(${currentX}, ${currentY})`);
+            });
+
+        scaleBarGroup.call(dragHandler as any);
     }
 
     renameGenome(id: string, name: string) {

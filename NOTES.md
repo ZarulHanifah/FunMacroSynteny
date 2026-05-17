@@ -1,0 +1,10 @@
+- Add scale bar
+    - need ability to resize too using slider and textbox on the left sidebar
+- Throw away chrom thickness - its kinda useless
+- You know the braille 3x3 to indicate that something is draggable. Why dont we have that on:
+    - Genome list on the left sidebar to rearrange the genomes on the display
+    - The reference chromosomes on the right sidebar
+- genome labels same size as chrom labels, including when resizing labels
+- you know the emoji feature, lets do 16 emojis, 4x4, no need for names for the emojis. We have 3-4 now, come up with the rest with maybe something more useful: flag, alarm, good, perfect, cry, poor, interesting, magnifying glass, things like that
+- Say I only focused on a few chroms... if I want to add another chrom to focused on, but after focusing, I dont exactly remember the name, I probably remembered the color and the rough syntenic pattern
+    - Why dont we, when in focus mode, if I hover on another reference chrom on the right sidebar, it renders on display (without even selecting), and if I take my cursor off from hover, it removed that temporary display

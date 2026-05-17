@@ -48,6 +48,9 @@ export interface State {
   draggedSample: Sample | null;
   draggedChrom: Chrom | null;
   baseScale?: number;
+  hoveredFocusChromId?: string | null;
+  scaleBarX?: number | null;
+  scaleBarY?: number | null;
 }
 
 export interface Config {
@@ -63,5 +66,8 @@ export interface Config {
   startY: number;
   showLabels: boolean;
   zoom: number;
+  scaleBarBp?: number;
+  scaleBarMb?: number;
+  showScaleBar?: boolean;
   [key: string]: any;
 }

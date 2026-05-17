@@ -12,7 +12,9 @@ export class Store {
             groupToIndex: new Map(),
             userColors: {},
             draggedSample: null,
-            draggedChrom: null
+            draggedChrom: null,
+            scaleBarX: null,
+            scaleBarY: null
         };
     }
     setSamples(samples, groupToIndex) {

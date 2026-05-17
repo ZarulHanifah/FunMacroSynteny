@@ -76,10 +76,17 @@
                     </div>
                 </div>
                 <div class="control-row-complex">
-                    <label>Chrom Thickness</label>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                        <label style="margin: 0; font-weight: 500;">Scale Bar Size</label>
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <input type="checkbox" id="cfg-showScaleBar" checked style="cursor: pointer; width: auto;">
+                            <span style="font-size: 11px; color: #64748b; font-weight: 500;">Show</span>
+                        </div>
+                    </div>
                     <div class="complex-input">
-                        <input type="range" id="cfg-chromHeight-slider" min="5" max="100" value="25">
-                        <input type="number" id="cfg-chromHeight-text" value="25" style="width: 60px;">
+                        <input type="range" id="cfg-scaleBarMb-slider" min="0.1" max="10" step="0.1" value="1">
+                        <input type="number" id="cfg-scaleBarMb-text" value="1" step="0.1" style="width: 60px;">
+                        <span style="font-size: 12px; color: #64748b;">Mb</span>
                     </div>
                 </div>
                 <div class="control-row-complex">
@@ -244,7 +251,7 @@
                     { key: 'trackSpacing', baseId: '#cfg-trackSpacing' },
                     { key: 'labelSize', baseId: '#cfg-labelSize' },
                     { key: 'chromMargin', baseId: '#cfg-chromMargin' },
-                    { key: 'chromHeight', baseId: '#cfg-chromHeight' },
+                    { key: 'scaleBarMb', baseId: '#cfg-scaleBarMb' },
                     { key: 'zoom', baseId: '#cfg-zoom' },
                     { key: 'chromStrokeWidth', baseId: '#cfg-chromStrokeWidth' }
                 ];
@@ -264,6 +271,14 @@
                     };
                     slider.on("input", (e) => sync(e.target.value));
                     text.on("change", (e) => sync(e.target.value));
+                });
+
+                // Bind showScaleBar checkbox
+                const showScaleBarCheckbox = d3.select("#cfg-showScaleBar");
+                showScaleBarCheckbox.property("checked", this.viz.config.showScaleBar !== false);
+                showScaleBarCheckbox.on("change", (e) => {
+                    this.viz.config.showScaleBar = e.target.checked;
+                    this.viz.render(false);
                 });
 
                 d3.select("#btn-genomes-all").on("click", () => {
@@ -315,8 +330,20 @@
                 const ref = this.viz.state.samples.find(s => s.id === this.viz.state.refGenomeId);
                 if (!ref) return;
 
-                ref.chroms.forEach(c => {
+                // Ensure we initialize x_index if missing
+                ref.chroms.forEach((c, idx) => {
+                    if (c.x_index === undefined) c.x_index = idx;
+                });
+
+                const sortedChroms = [...ref.chroms].sort((a, b) => (a.x_index ?? 0) - (b.x_index ?? 0));
+
+                sortedChroms.forEach(c => {
                     const item = container.append("div").attr("class", "genome-item");
+                    
+                    // Prepend drag handle
+                    item.append("span").attr("class", "sidebar-drag-handle")
+                        .html(`<svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><circle cx="2" cy="2" r="1.5"/><circle cx="2" cy="7" r="1.5"/><circle cx="2" cy="12" r="1.5"/><circle cx="7" cy="2" r="1.5"/><circle cx="7" cy="7" r="1.5"/><circle cx="7" cy="12" r="1.5"/></svg>`);
+
                     item.append("input").attr("type", "checkbox")
                         .property("checked", this.viz.state.focusChroms.has(c.id))
                         .on("change", (e) => {
@@ -329,6 +356,54 @@
                             this.viz.autoScaleToFit();
                         });
                     item.append("span").text((c.marker ? c.marker + " " : "") + c.name);
+
+                    // Drag events
+                    item.attr("draggable", "true");
+                    item.on("dragstart", (e) => {
+                        e.dataTransfer.setData("text/plain", c.id);
+                        item.classed("is-dragging", true);
+                    });
+                    item.on("dragend", () => {
+                        item.classed("is-dragging", false);
+                        container.selectAll(".genome-item").classed("drag-over", false);
+                    });
+                    item.on("dragover", (e) => {
+                        e.preventDefault();
+                        item.classed("drag-over", true);
+                    });
+                    item.on("dragleave", () => {
+                        item.classed("drag-over", false);
+                    });
+                    item.on("drop", (e) => {
+                        e.preventDefault();
+                        const sourceId = e.dataTransfer.getData("text/plain");
+                        if (sourceId && sourceId !== c.id) {
+                             const sourceChrom = ref.chroms.find(x => x.id === sourceId);
+                             const targetChrom = c;
+                             if (sourceChrom && targetChrom) {
+                                 const tmp = sourceChrom.x_index;
+                                 sourceChrom.x_index = targetChrom.x_index;
+                                 targetChrom.x_index = tmp;
+                                 this.viz.render(true);
+                                 this.updateFocusList();
+                             }
+                        }
+                        item.classed("drag-over", false);
+                    });
+
+                    // Hover preview
+                    item.on("mouseenter", () => {
+                        if (this.viz.state.focusChroms.size > 0 && !this.viz.state.focusChroms.has(c.id)) {
+                            this.viz.state.hoveredFocusChromId = c.id;
+                            this.viz.autoScaleToFit();
+                        }
+                    });
+                    item.on("mouseleave", () => {
+                        if (this.viz.state.hoveredFocusChromId === c.id) {
+                            this.viz.state.hoveredFocusChromId = null;
+                            this.viz.autoScaleToFit();
+                        }
+                    });
                 });
             }
 
@@ -337,6 +412,11 @@
                 container.selectAll("*").remove();
                 [...this.viz.state.samples].sort((a,b) => a.slot - b.slot).forEach(s => {
                     const item = container.append("div").attr("class", `genome-item ${this.viz.state.refGenomeId === s.id ? 'is-ref' : ''}`);
+                    
+                    // Prepend drag handle
+                    item.append("span").attr("class", "sidebar-drag-handle")
+                        .html(`<svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><circle cx="2" cy="2" r="1.5"/><circle cx="2" cy="7" r="1.5"/><circle cx="2" cy="12" r="1.5"/><circle cx="7" cy="2" r="1.5"/><circle cx="7" cy="7" r="1.5"/><circle cx="7" cy="12" r="1.5"/></svg>`);
+
                     item.append("input").attr("type", "checkbox")
                         .property("checked", !this.viz.state.hiddenGenomes.has(s.id))
                         .on("change", (e) => {
@@ -345,6 +425,40 @@
                             this.viz.render();
                         });
                     item.append("span").text(s.name).attr("title", s.name);
+
+                    // Drag events
+                    item.attr("draggable", "true");
+                    item.on("dragstart", (e) => {
+                        e.dataTransfer.setData("text/plain", s.id);
+                        item.classed("is-dragging", true);
+                    });
+                    item.on("dragend", () => {
+                        item.classed("is-dragging", false);
+                        container.selectAll(".genome-item").classed("drag-over", false);
+                    });
+                    item.on("dragover", (e) => {
+                        e.preventDefault();
+                        item.classed("drag-over", true);
+                    });
+                    item.on("dragleave", () => {
+                        item.classed("drag-over", false);
+                    });
+                    item.on("drop", (e) => {
+                        e.preventDefault();
+                        const sourceId = e.dataTransfer.getData("text/plain");
+                        if (sourceId && sourceId !== s.id) {
+                            const sourceSample = this.viz.state.samples.find(x => x.id === sourceId);
+                            const targetSample = s;
+                            if (sourceSample && targetSample) {
+                                const tmp = sourceSample.slot;
+                                sourceSample.slot = targetSample.slot;
+                                targetSample.slot = tmp;
+                                this.viz.render(true);
+                                this.updateGenomeList();
+                            }
+                        }
+                        item.classed("drag-over", false);
+                    });
                 });
             }
 

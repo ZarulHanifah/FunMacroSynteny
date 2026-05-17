@@ -31,6 +31,7 @@ export declare class SyntenyViz {
     autoScaleToFit(): void;
     render(animate?: boolean): void;
     renderLinks(): void;
+    renderScaleBar(): void;
     renameGenome(id: string, name: string): void;
     /**
      * Rearranges chromosomes of a target genome to align with a neighbor.

@@ -64,7 +64,7 @@ export class TrackRenderer {
             .text((d) => d.name)
             .attr("font-family", "'Inter', sans-serif")
             .attr("font-weight", "600")
-            .attr("font-size", "13px")
+            .attr("font-size", `${config.labelSize}px`)
             .attr("fill", "#475569");
         // Localized contextmenu for renaming
         tracksMerged.on("contextmenu", (e, d) => {
@@ -174,9 +174,14 @@ export class TrackRenderer {
         chromsEnter.append("text").attr("class", "chrom-name")
             .attr("dominant-baseline", "hanging");
         const chromsMerged = chroms.merge(chromsEnter);
-        const chromsT = animate ? chromsMerged.transition().duration(duration) : chromsMerged;
-        chromsT.filter((d) => d !== state.draggedChrom)
-            .attr("transform", (d) => `translate(${d.absX}, 0)`);
+        const chromsT = chromsMerged.filter((d) => d !== state.draggedChrom);
+        if (animate) {
+            chromsT.transition().duration(duration)
+                .attr("transform", (d) => `translate(${d.absX}, 0)`);
+        }
+        else {
+            chromsT.attr("transform", (d) => `translate(${d.absX}, 0)`);
+        }
         chromsMerged.filter((d) => d === state.draggedChrom)
             .attr("transform", (d) => `translate(${d.currentDragX}, 0)`);
         chromsMerged.select(".chrom-bar")
@@ -383,23 +388,56 @@ export class TrackRenderer {
             .html(`🏷️ Set Marker`);
         markerItem.on("mouseenter", () => {
             removeSubmenu();
-            submenu = menu.append("div").attr("class", "context-menu submenu");
-            const markers = [
-                { icon: "🚩", name: "Red Flag", value: "🚩" },
-                { icon: "✳️", name: "Asterisk", value: "✳️" },
-                { icon: "😊", name: "Smiley", value: "😊" },
-                { icon: "❌", name: "Clear Marker", value: null }
-            ];
-            markers.forEach(m => {
-                const mItem = submenu.append("div").attr("class", "context-menu-item")
-                    .html(`${m.icon} ${m.name}`);
-                mItem.on("click", (e) => {
+            submenu = menu.append("div").attr("class", "context-menu submenu")
+                .style("width", "160px")
+                .style("padding", "8px")
+                .style("background", "rgba(255, 255, 255, 0.95)")
+                .style("backdrop-filter", "blur(8px)")
+                .style("border-radius", "8px")
+                .style("border", "1px solid #e2e8f0");
+            const gridContainer = submenu.append("div")
+                .style("display", "grid")
+                .style("grid-template-columns", "repeat(4, 1fr)")
+                .style("gap", "6px")
+                .style("margin-bottom", "8px");
+            const markers = ["🚩", "🚨", "👍", "🌟", "😢", "💸", "🤔", "🔍", "📌", "❤️", "⚠️", "✅", "🧬", "🔬", "📍", "💬"];
+            markers.forEach(emoji => {
+                const cell = gridContainer.append("div")
+                    .style("font-size", "18px")
+                    .style("padding", "4px")
+                    .style("cursor", "pointer")
+                    .style("text-align", "center")
+                    .style("user-select", "none")
+                    .style("transition", "transform 0.1s ease-in-out")
+                    .html(emoji);
+                cell.on("mouseenter", function () {
+                    d3.select(this).style("transform", "scale(1.25)");
+                });
+                cell.on("mouseleave", function () {
+                    d3.select(this).style("transform", "scale(1)");
+                });
+                cell.on("click", (e) => {
                     e.stopPropagation();
-                    d.marker = m.value;
+                    d.marker = emoji;
                     this.viz.render();
                     menu.remove();
-                    this.viz.showToast(m.value ? `Added ${m.name} to ${d.name}` : `Cleared marker for ${d.name}`);
+                    this.viz.showToast(`Added ${emoji} to ${d.name}`);
                 });
+            });
+            const clearBtn = submenu.append("div")
+                .attr("class", "context-menu-item")
+                .style("text-align", "center")
+                .style("border-top", "1px solid #f1f5f9")
+                .style("padding-top", "6px")
+                .style("color", "#ef4444")
+                .style("font-weight", "500")
+                .html("❌ Clear Marker");
+            clearBtn.on("click", (e) => {
+                e.stopPropagation();
+                d.marker = null;
+                this.viz.render();
+                menu.remove();
+                this.viz.showToast(`Cleared marker for ${d.name}`);
             });
         });
         // Close when clicking outside

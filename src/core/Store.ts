@@ -15,7 +15,9 @@ export class Store {
             groupToIndex: new Map<string, Block[]>(),
             userColors: {},
             draggedSample: null,
-            draggedChrom: null
+            draggedChrom: null,
+            scaleBarX: null,
+            scaleBarY: null
         };
     }
 
