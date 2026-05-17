@@ -558,13 +558,15 @@ class Store {
             userColors: {},
             draggedSample: null,
             draggedChrom: null,
-            hoveredFocusChromId: null
+            hoveredFocusChromId: null,
+            strandMap: new Map()
         };
     }
 
-    setSamples(samples, groupToIndex) {
+    setSamples(samples, groupToIndex, strandMap) {
         this.state.samples = samples;
         this.state.groupToIndex = groupToIndex;
+        this.state.strandMap = strandMap || new Map();
 
         // Ensure refGenomeId is valid for the new samples
         const currentRefExists = samples.some(s => s.id === this.state.refGenomeId);
@@ -755,11 +757,11 @@ class Parsers {
      * Parses a TSV string into samples and blocks.
      * @param {string} tsvText - The raw TSV data.
      * @returns {Object} { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks }
-     */
     static parseTSV(tsvText) {
         const rows = d3.tsvParse(tsvText);
         const samplesMap = new Map();
         const groupToIndex = new Map();
+        const strandMap = new Map();
         
         const detectedStrandColumn = !!(rows.columns && rows.columns.includes("strand"));
         let hasInvertedBlocks = false;
@@ -782,36 +784,36 @@ class Parsers {
                 
                 const startRaw = parseInt(st);
                 const endRaw = parseInt(en);
+                const startMin = Math.min(startRaw, endRaw);
+                const endMax = Math.max(startRaw, endRaw);
 
-                let inverted = false;
-                let tsvStart = startRaw;
-                let tsvEnd = endRaw;
+                chrom.size = Math.max(chrom.size, endMax);
 
-                if (isSecondBlock && detectedStrandColumn && row.strand === "-") {
-                    inverted = true;
-                    tsvStart = endRaw;
-                    tsvEnd = startRaw;
-                } else if (!detectedStrandColumn || (row.strand !== "-" && isSecondBlock) || !isSecondBlock) {
-                    inverted = startRaw > endRaw;
+                let blockObj = chrom.blocks.find(b => b.group === block);
+                if (blockObj) {
+                    if (hasLink) {
+                        blockObj.linked = true;
+                        if (!groupToIndex.has(block)) groupToIndex.set(block, []);
+                        const arr = groupToIndex.get(block);
+                        if (!arr.includes(blockObj)) {
+                            arr.push(blockObj);
+                        }
+                    }
+                    return blockObj;
                 }
 
-                if (inverted) {
-                    hasInvertedBlocks = true;
-                }
-
-                const blockObj = {
+                blockObj = {
                     group: block,
-                    start: Math.min(startRaw, endRaw),
-                    end: Math.max(startRaw, endRaw),
-                    tsvStart: tsvStart,
-                    tsvEnd: tsvEnd,
-                    inverted: inverted,
+                    start: startMin,
+                    end: endMax,
+                    tsvStart: startMin,
+                    tsvEnd: endMax,
+                    inverted: false,
                     linked: hasLink,
                     sampleId: bin,
                     chromId: chromId
                 };
                 
-                chrom.size = Math.max(chrom.size, blockObj.end);
                 chrom.blocks.push(blockObj);
 
                 if (hasLink) {
@@ -822,10 +824,17 @@ class Parsers {
             };
 
             touch(b1, s1, row.start, row.end, gid, false);
-            if (hasLink) touch(b2, seq2, row.start2, row.end2, gid, true);
+            if (hasLink) {
+                touch(b2, seq2, row.start2, row.end2, gid, true);
+                const linkKey = \`\${gid}||\${b1}||\${b2}\`;
+                strandMap.set(linkKey, row.strand || "+");
+                if (row.strand === "-") {
+                    hasInvertedBlocks = true;
+                }
+            }
         });
 
-        return { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks };
+        return { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks, strandMap };
     }
 }
 
@@ -1498,15 +1507,30 @@ class LinkRenderer {
                             return chrom.inverted ? base + (chrom.size - bp) * config.scale : base + bp * config.scale;
                         };
 
-                        linksData.push({
-                            group: b1.group,
-                            path: [
-                                [getX(c1, x1_offset, b1.tsvStart), y1],
-                                [getX(c1, x1_offset, b1.tsvEnd), y1],
-                                [getX(c2, x2_offset, b2.tsvEnd), y2],
-                                [getX(c2, x2_offset, b2.tsvStart), y2]
-                            ]
-                        });
+                        const linkKey = \`\${b1.group}||\${b1.sampleId}||\${b2.sampleId}\`;
+                        const strand = state.strandMap.get(linkKey) || "+";
+
+                        if (strand === "-") {
+                            linksData.push({
+                                group: b1.group,
+                                path: [
+                                    [getX(c1, x1_offset, b1.tsvStart), y1],
+                                    [getX(c1, x1_offset, b1.tsvEnd), y1],
+                                    [getX(c2, x2_offset, b2.tsvStart), y2],
+                                    [getX(c2, x2_offset, b2.tsvEnd), y2]
+                                ]
+                            });
+                        } else {
+                            linksData.push({
+                                group: b1.group,
+                                path: [
+                                    [getX(c1, x1_offset, b1.tsvStart), y1],
+                                    [getX(c1, x1_offset, b1.tsvEnd), y1],
+                                    [getX(c2, x2_offset, b2.tsvEnd), y2],
+                                    [getX(c2, x2_offset, b2.tsvStart), y2]
+                                ]
+                            });
+                        }
                     });
                 });
             });
@@ -1613,7 +1637,7 @@ class SyntenyViz {
     }
 
     async setData(tsvText) {
-        const { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks } = Parsers.parseTSV(tsvText);
+        const { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks, strandMap } = Parsers.parseTSV(tsvText);
 
         if (detectedStrandColumn && hasInvertedBlocks) {
             await this.showDisclaimer(
@@ -1630,11 +1654,11 @@ class SyntenyViz {
         const samples = [];
         let slot = 0;
         samplesMap.forEach((sInfo, id) => {
-            const chroms = Array.from(sInfo.chroms.values()).map((c, i) => ({ ...c, x_index: i }));
+            const chroms = Array.from(sInfo.chroms.values()).map((c, i) => ({ ...c, x_index: i, genomicIndex: i }));
             samples.push({ id, name: id, slot: slot++, chroms });
         });
 
-        this.store.setSamples(samples, groupToIndex);
+        this.store.setSamples(samples, groupToIndex, strandMap);
         this.emit('dataLoaded', samples);
 
         if (samples.length > 0) {

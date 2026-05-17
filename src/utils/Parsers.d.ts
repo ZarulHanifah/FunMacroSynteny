@@ -15,6 +15,7 @@ export declare class Parsers {
         groupToIndex: Map<string, Block[]>;
         detectedStrandColumn: boolean;
         hasInvertedBlocks: boolean;
+        strandMap: Map<string, string>;
     };
 }
 export {};

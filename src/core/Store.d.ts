@@ -2,7 +2,7 @@ import { State, Sample, Block, Chrom } from '../types.js';
 export declare class Store {
     state: State;
     constructor();
-    setSamples(samples: Sample[], groupToIndex: Map<string, Block[]>): void;
+    setSamples(samples: Sample[], groupToIndex: Map<string, Block[]>, strandMap?: Map<string, string>): void;
     updateColoring(colors: Record<string, string>): void;
     toggleHiddenGenome(id: string): void;
     toggleFocusChrom(id: string): void;

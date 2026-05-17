@@ -68,15 +68,30 @@ export class LinkRenderer {
                             return chrom.inverted ? base + (chrom.size - bp) * config.scale : base + bp * config.scale;
                         };
 
-                        linksData.push({
-                            group: b1.group,
-                            path: [
-                                [getX(c1, x1_offset, b1.tsvStart), y1],
-                                [getX(c1, x1_offset, b1.tsvEnd), y1],
-                                [getX(c2, x2_offset, b2.tsvEnd), y2],
-                                [getX(c2, x2_offset, b2.tsvStart), y2]
-                            ]
-                        });
+                        const linkKey = `${b1.group}||${b1.sampleId}||${b2.sampleId}`;
+                        const strand = state.strandMap.get(linkKey) || "+";
+
+                        if (strand === "-") {
+                            linksData.push({
+                                group: b1.group,
+                                path: [
+                                    [getX(c1, x1_offset, b1.tsvStart), y1],
+                                    [getX(c1, x1_offset, b1.tsvEnd), y1],
+                                    [getX(c2, x2_offset, b2.tsvStart), y2],
+                                    [getX(c2, x2_offset, b2.tsvEnd), y2]
+                                ]
+                            });
+                        } else {
+                            linksData.push({
+                                group: b1.group,
+                                path: [
+                                    [getX(c1, x1_offset, b1.tsvStart), y1],
+                                    [getX(c1, x1_offset, b1.tsvEnd), y1],
+                                    [getX(c2, x2_offset, b2.tsvEnd), y2],
+                                    [getX(c2, x2_offset, b2.tsvStart), y2]
+                                ]
+                            });
+                        }
                     });
                 });
             });

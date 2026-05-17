@@ -91,7 +91,7 @@ export class SyntenyViz {
     }
 
     async setData(tsvText: string) {
-        const { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks } = Parsers.parseTSV(tsvText);
+        const { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks, strandMap } = Parsers.parseTSV(tsvText);
 
         if (detectedStrandColumn && hasInvertedBlocks) {
             await this.showDisclaimer(
@@ -108,11 +108,11 @@ export class SyntenyViz {
         const samples: Sample[] = [];
         let slot = 0;
         samplesMap.forEach((sInfo, id) => {
-            const chroms: Chrom[] = Array.from(sInfo.chroms.values()).map((c, i) => ({ ...c, x_index: i }));
+            const chroms: Chrom[] = Array.from(sInfo.chroms.values()).map((c, i) => ({ ...c, x_index: i, genomicIndex: i }));
             samples.push({ id, name: id, slot: slot++, chroms, visualChroms: [] });
         });
 
-        this.store.setSamples(samples, groupToIndex);
+        this.store.setSamples(samples, groupToIndex, strandMap);
         this.emit('dataLoaded', samples);
 
         if (samples.length > 0) {

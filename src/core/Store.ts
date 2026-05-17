@@ -17,13 +17,15 @@ export class Store {
             draggedSample: null,
             draggedChrom: null,
             scaleBarX: null,
-            scaleBarY: null
+            scaleBarY: null,
+            strandMap: new Map<string, string>()
         };
     }
 
-    setSamples(samples: Sample[], groupToIndex: Map<string, Block[]>) {
+    setSamples(samples: Sample[], groupToIndex: Map<string, Block[]>, strandMap?: Map<string, string>) {
         this.state.samples = samples;
         this.state.groupToIndex = groupToIndex;
+        this.state.strandMap = strandMap || new Map<string, string>();
 
         // Ensure refGenomeId is valid for the new samples
         const currentRefExists = samples.some(s => s.id === this.state.refGenomeId);

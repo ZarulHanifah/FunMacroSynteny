@@ -8,6 +8,7 @@ export class Parsers {
         const rows = d3.tsvParse(tsvText);
         const samplesMap = new Map();
         const groupToIndex = new Map();
+        const strandMap = new Map();
         const detectedStrandColumn = !!(rows.columns && rows.columns.includes("strand"));
         let hasInvertedBlocks = false;
         rows.forEach((row) => {
@@ -45,32 +46,34 @@ export class Parsers {
                 const chrom = sample.chroms.get(seq);
                 const startRaw = parseInt(st);
                 const endRaw = parseInt(en);
-                let inverted = false;
-                let tsvStart = startRaw;
-                let tsvEnd = endRaw;
-                if (isSecondBlock && detectedStrandColumn && row.strand === "-") {
-                    inverted = true;
-                    tsvStart = endRaw;
-                    tsvEnd = startRaw;
+                const startMin = Math.min(startRaw, endRaw);
+                const endMax = Math.max(startRaw, endRaw);
+                chrom.size = Math.max(chrom.size, endMax);
+                // Deduplicate blocks: if a block for this group already exists on this chromosome, reuse it!
+                let blockObj = chrom.blocks.find(b => b.group === block);
+                if (blockObj) {
+                    if (hasLink) {
+                        blockObj.linked = true;
+                        if (!groupToIndex.has(block))
+                            groupToIndex.set(block, []);
+                        const arr = groupToIndex.get(block);
+                        if (!arr.includes(blockObj)) {
+                            arr.push(blockObj);
+                        }
+                    }
+                    return blockObj;
                 }
-                else if (!detectedStrandColumn || (row.strand !== "-" && isSecondBlock) || !isSecondBlock) {
-                    inverted = startRaw > endRaw;
-                }
-                if (inverted) {
-                    hasInvertedBlocks = true;
-                }
-                const blockObj = {
+                blockObj = {
                     group: block,
-                    start: Math.min(startRaw, endRaw),
-                    end: Math.max(startRaw, endRaw),
-                    tsvStart: tsvStart,
-                    tsvEnd: tsvEnd,
-                    inverted: inverted,
+                    start: startMin,
+                    end: endMax,
+                    tsvStart: startMin,
+                    tsvEnd: endMax,
+                    inverted: false,
                     linked: hasLink,
                     sampleId: bin,
                     chromId: chromId,
                 };
-                chrom.size = Math.max(chrom.size, blockObj.end);
                 chrom.blocks.push(blockObj);
                 if (hasLink) {
                     if (!groupToIndex.has(block))
@@ -82,8 +85,13 @@ export class Parsers {
             touch(b1, s1, row.start || "0", row.end || "0", gid, false);
             if (hasLink && b2 && seq2) {
                 touch(b2, seq2, row.start2 || "0", row.end2 || "0", gid, true);
+                const linkKey = `${gid}||${b1}||${b2}`;
+                strandMap.set(linkKey, row.strand || "+");
+                if (row.strand === "-") {
+                    hasInvertedBlocks = true;
+                }
             }
         });
-        return { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks };
+        return { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks, strandMap };
     }
 }

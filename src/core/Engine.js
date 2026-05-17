@@ -33,6 +33,62 @@ export class Engine {
         });
         visibleSamples = visibleSamples.filter(s => s.visualChroms.length > 0);
         visibleSamples.sort((a, b) => a.slot - b.slot).forEach((s, i) => s.visualSlot = i);
+        const currentFocusKey = Array.from(focusSet).sort().join("||");
+        const lastFocusKey = state.lastFocusKey;
+        if (currentFocusKey !== lastFocusKey) {
+            state.lastFocusKey = currentFocusKey;
+            if (focusSet.size > 0) {
+                const refSample = state.samples.find(s => s.id === state.refGenomeId);
+                const refFocusChroms = refSample
+                    ? refSample.chroms
+                        .filter(c => focusSet.has(c.id))
+                        .sort((a, b) => (a.x_index ?? 0) - (b.x_index ?? 0))
+                    : [];
+                const focusRankMap = new Map();
+                refFocusChroms.forEach((c, idx) => {
+                    focusRankMap.set(c.id, idx);
+                });
+                const getFocusScore = (c) => {
+                    let scoreSum = 0;
+                    let weightSum = 0;
+                    focusRankMap.forEach((rank, fId) => {
+                        const w = weights.get([c.id, fId].sort().join("||"));
+                        if (w !== undefined && w > 0) {
+                            scoreSum += rank * w;
+                            weightSum += w;
+                        }
+                    });
+                    if (weightSum > 0) {
+                        return scoreSum / weightSum;
+                    }
+                    return 999999 + (c.genomicIndex ?? c.x_index ?? 0);
+                };
+                state.samples.forEach(sample => {
+                    if (sample.id === state.refGenomeId)
+                        return;
+                    const sorted = [...sample.chroms].sort((a, b) => {
+                        const scoreA = getFocusScore(a);
+                        const scoreB = getFocusScore(b);
+                        if (Math.abs(scoreA - scoreB) < 1e-9) {
+                            return (a.genomicIndex ?? a.x_index ?? 0) - (b.genomicIndex ?? b.x_index ?? 0);
+                        }
+                        return scoreA - scoreB;
+                    });
+                    sorted.forEach((c, idx) => {
+                        c.x_index = idx;
+                    });
+                });
+            }
+            else {
+                state.samples.forEach(sample => {
+                    sample.chroms.forEach(c => {
+                        if (c.genomicIndex !== undefined) {
+                            c.x_index = c.genomicIndex;
+                        }
+                    });
+                });
+            }
+        }
         visibleSamples.forEach(sample => {
             let currentX = 0;
             sample.visualChroms.sort((a, b) => (a.x_index ?? 0) - (b.x_index ?? 0)).forEach(c => {

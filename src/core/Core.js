@@ -77,7 +77,7 @@ export class SyntenyViz {
         await this.setData(text);
     }
     async setData(tsvText) {
-        const { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks } = Parsers.parseTSV(tsvText);
+        const { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks, strandMap } = Parsers.parseTSV(tsvText);
         if (detectedStrandColumn && hasInvertedBlocks) {
             await this.showDisclaimer("ℹ️ Inversion Detection", "We detected a 'strand' column in your link data, indicating inversions are encoded via strands. The parser will automatically twist corresponding synteny ribbons to represent inversions correctly.");
         }
@@ -87,10 +87,10 @@ export class SyntenyViz {
         const samples = [];
         let slot = 0;
         samplesMap.forEach((sInfo, id) => {
-            const chroms = Array.from(sInfo.chroms.values()).map((c, i) => ({ ...c, x_index: i }));
+            const chroms = Array.from(sInfo.chroms.values()).map((c, i) => ({ ...c, x_index: i, genomicIndex: i }));
             samples.push({ id, name: id, slot: slot++, chroms, visualChroms: [] });
         });
-        this.store.setSamples(samples, groupToIndex);
+        this.store.setSamples(samples, groupToIndex, strandMap);
         this.emit('dataLoaded', samples);
         if (samples.length > 0) {
             this.applyColoring();

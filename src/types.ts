@@ -18,6 +18,7 @@ export interface Chrom {
   sampleId: string;
   x_index: number;
   absX: number;
+  genomicIndex?: number;
   marker?: string | null;
   inverted?: boolean;
   currentDragX?: number;
@@ -51,6 +52,8 @@ export interface State {
   hoveredFocusChromId?: string | null;
   scaleBarX?: number | null;
   scaleBarY?: number | null;
+  lastFocusKey?: string;
+  strandMap: Map<string, string>;
 }
 
 export interface Config {
