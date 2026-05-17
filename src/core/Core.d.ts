@@ -25,7 +25,7 @@ export declare class SyntenyViz {
         install: (viz: SyntenyViz) => void;
     }): this;
     loadTSV(file: File): Promise<void>;
-    setData(tsvText: string): void;
+    setData(tsvText: string): Promise<void>;
     applyColoring(): void;
     updateGroupColor(groupId: string, color: string): void;
     autoScaleToFit(): void;
@@ -37,5 +37,6 @@ export declare class SyntenyViz {
      */
     sortChromosomesByNeighbor(targetId: string, neighborId: string): void;
     showToast(msg: string): void;
+    showDisclaimer(title: string, message: string): Promise<void>;
     _initResizeHandler(): void;
 }

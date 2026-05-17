@@ -750,12 +750,15 @@ class Parsers {
     /**
      * Parses a TSV string into samples and blocks.
      * @param {string} tsvText - The raw TSV data.
-     * @returns {Object} { samplesMap, groupToIndex }
+     * @returns {Object} { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks }
      */
     static parseTSV(tsvText) {
         const rows = d3.tsvParse(tsvText);
         const samplesMap = new Map();
         const groupToIndex = new Map();
+        
+        const detectedStrandColumn = !!(rows.columns && rows.columns.includes("strand"));
+        let hasInvertedBlocks = false;
 
         rows.forEach(row => {
             const b1 = row.bin_id;
@@ -765,7 +768,7 @@ class Parsers {
             const gid = row.block_id;
             const hasLink = (b2 && b2 !== "null" && seq2 && seq2 !== "null");
 
-            const touch = (bin, seq, st, en, block) => {
+            const touch = (bin, seq, st, en, block, isSecondBlock) => {
                 if (!bin || bin === "null") return null;
                 if (!samplesMap.has(bin)) samplesMap.set(bin, { id: bin, name: bin, chroms: new Map() });
                 const sample = samplesMap.get(bin);
@@ -775,13 +778,30 @@ class Parsers {
                 
                 const startRaw = parseInt(st);
                 const endRaw = parseInt(en);
+
+                let inverted = false;
+                let tsvStart = startRaw;
+                let tsvEnd = endRaw;
+
+                if (isSecondBlock && detectedStrandColumn && row.strand === "-") {
+                    inverted = true;
+                    tsvStart = endRaw;
+                    tsvEnd = startRaw;
+                } else if (!detectedStrandColumn || (row.strand !== "-" && isSecondBlock) || !isSecondBlock) {
+                    inverted = startRaw > endRaw;
+                }
+
+                if (inverted) {
+                    hasInvertedBlocks = true;
+                }
+
                 const blockObj = {
                     group: block,
                     start: Math.min(startRaw, endRaw),
                     end: Math.max(startRaw, endRaw),
-                    tsvStart: startRaw,
-                    tsvEnd: endRaw,
-                    inverted: (startRaw > endRaw),
+                    tsvStart: tsvStart,
+                    tsvEnd: tsvEnd,
+                    inverted: inverted,
                     linked: hasLink,
                     sampleId: bin,
                     chromId: chromId
@@ -797,11 +817,11 @@ class Parsers {
                 return blockObj;
             };
 
-            touch(b1, s1, row.start, row.end, gid);
-            if (hasLink) touch(b2, seq2, row.start2, row.end2, gid);
+            touch(b1, s1, row.start, row.end, gid, false);
+            if (hasLink) touch(b2, seq2, row.start2, row.end2, gid, true);
         });
 
-        return { samplesMap, groupToIndex };
+        return { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks };
     }
 }
 
@@ -1542,11 +1562,23 @@ class SyntenyViz {
     // --- DATA LOADING ---
     async loadTSV(file) {
         const text = await file.text();
-        this.setData(text);
+        await this.setData(text);
     }
 
-    setData(tsvText) {
-        const { samplesMap, groupToIndex } = Parsers.parseTSV(tsvText);
+    async setData(tsvText) {
+        const { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks } = Parsers.parseTSV(tsvText);
+
+        if (detectedStrandColumn && hasInvertedBlocks) {
+            await this.showDisclaimer(
+                "ℹ️ Inversion Detection",
+                "We detected a 'strand' column in your link data, indicating inversions are encoded via strands. The parser will automatically twist corresponding synteny ribbons to represent inversions correctly."
+            );
+        } else if (hasInvertedBlocks) {
+            await this.showDisclaimer(
+                "ℹ️ Inversion Detection",
+                "We detected coordinate-reversed inversions (start > end) in your link data. The parser will automatically twist corresponding synteny ribbons to represent inversions correctly."
+            );
+        }
 
         const samples = [];
         let slot = 0;
@@ -1747,6 +1779,70 @@ class SyntenyViz {
 
     showToast(msg) {
         this.emit('toast', msg);
+    }
+
+    showDisclaimer(title, message) {
+        return new Promise((resolve) => {
+            const overlay = d3.select("body").append("div")
+                .attr("class", "disclaimer-overlay")
+                .style("position", "fixed")
+                .style("top", "0")
+                .style("left", "0")
+                .style("width", "100vw")
+                .style("height", "100vh")
+                .style("background", "rgba(15, 23, 42, 0.6)")
+                .style("backdrop-filter", "blur(8px)")
+                .style("-webkit-backdrop-filter", "blur(8px)")
+                .style("display", "flex")
+                .style("justify-content", "center")
+                .style("align-items", "center")
+                .style("z-index", "99999");
+
+            const box = overlay.append("div")
+                .attr("class", "disclaimer-box")
+                .style("background", "white")
+                .style("padding", "24px 32px")
+                .style("border-radius", "16px")
+                .style("max-width", "450px")
+                .style("box-shadow", "0 25px 50px -12px rgba(0,0,0,0.25)")
+                .style("border", "1px solid #e2e8f0")
+                .style("text-align", "center")
+                .style("font-family", "'Inter', sans-serif")
+                .style("animation", "fadeIn 0.2s ease-out");
+
+            box.append("h3")
+                .style("margin", "0 0 12px 0")
+                .style("color", "#0f172a")
+                .style("font-size", "18px")
+                .style("font-weight", "600")
+                .text(title);
+
+            box.append("p")
+                .style("margin", "0 0 20px 0")
+                .style("color", "#475569")
+                .style("font-size", "13px")
+                .style("line-height", "1.6")
+                .text(message);
+
+            const btn = box.append("button")
+                .style("background", "#3b82f6")
+                .style("color", "white")
+                .style("border", "none")
+                .style("padding", "8px 24px")
+                .style("border-radius", "8px")
+                .style("font-size", "13px")
+                .style("font-weight", "600")
+                .style("cursor", "pointer")
+                .style("transition", "background 0.2s")
+                .text("OK")
+                .on("click", () => {
+                    overlay.remove();
+                    resolve();
+                });
+
+            btn.on("mouseenter", function() { d3.select(this).style("background", "#2563eb"); })
+               .on("mouseleave", function() { d3.select(this).style("background", "#3b82f6"); });
+        });
     }
 
     _initResizeHandler() {

@@ -47,6 +47,7 @@ def process_links_data(links_tsv_path, sequence_lengths_tsv_path):
         sys.exit(1)
     
     # Ensure bin_id and seq_id are strings for consistent dictionary keys
+    # Ensure bin_id and seq_id are strings for consistent dictionary keys
     links_df['bin_id'] = links_df['bin_id'].astype(str)
     links_df['seq_id'] = links_df['seq_id'].astype(str)
     if "bin_id2" in links_df.columns: # Check if column exists before converting
@@ -54,6 +55,7 @@ def process_links_data(links_tsv_path, sequence_lengths_tsv_path):
     if "seq_id2" in links_df.columns: # Check if column exists before converting
         links_df['seq_id2'] = links_df['seq_id2'].astype(str)
 
+    has_strand = "strand" in links_df.columns
     output_rows = []
     non_syn_counter = 1
 
@@ -65,6 +67,8 @@ def process_links_data(links_tsv_path, sequence_lengths_tsv_path):
         "block_id", "bin_id", "seq_id", "start", "end",
         "bin_id2", "seq_id2", "start2", "end2"
     ]
+    if has_strand:
+        output_columns.append("strand")
 
     # First pass: Process existing syntenic/non-syntenic blocks from the links file
     for index, row in links_df.iterrows():
@@ -74,8 +78,10 @@ def process_links_data(links_tsv_path, sequence_lengths_tsv_path):
         current_start = int(row["start"])
         current_end = int(row["end"])
 
-        # Add covered region for the first genome
-        covered_regions.setdefault((current_bin_id, current_seq_id), []).append((current_start, current_end))
+        # Add covered region for the first genome (using min/max to support inverted coordinates)
+        covered_regions.setdefault((current_bin_id, current_seq_id), []).append(
+            (min(current_start, current_end), max(current_start, current_end))
+        )
 
         # Check for syntenic block (presence of seq_id2 and bin_id2)
         seq_id2_in = row.get("seq_id2", None)
@@ -109,10 +115,12 @@ def process_links_data(links_tsv_path, sequence_lengths_tsv_path):
             start2_out = start2_in_val
             end2_out = end2_in_val
 
-            # Add covered region for the second genome
-            covered_regions.setdefault((bin_id2_in, seq_id2_in), []).append((start2_in_val, end2_in_val))
+            # Add covered region for the second genome (using min/max to support inverted coordinates)
+            covered_regions.setdefault((bin_id2_in, seq_id2_in), []).append(
+                (min(start2_in_val, end2_in_val), max(start2_in_val, end2_in_val))
+            )
 
-            output_rows.append([
+            row_to_append = [
                 block_id_out,
                 current_bin_id,
                 current_seq_id,
@@ -122,7 +130,10 @@ def process_links_data(links_tsv_path, sequence_lengths_tsv_path):
                 seq_id2_out,
                 start2_out,
                 end2_out
-            ])
+            ]
+            if has_strand:
+                row_to_append.append(row.get("strand", "+"))
+            output_rows.append(row_to_append)
         else:
             # It's an explicit non-syntenic block from the input file
             block_id_out = f"nonsyn_{non_syn_counter}"
@@ -130,7 +141,7 @@ def process_links_data(links_tsv_path, sequence_lengths_tsv_path):
             
             bin_id2_out, seq_id2_out, start2_out, end2_out = "null", "null", "null", "null"
 
-            output_rows.append([
+            row_to_append = [
                 block_id_out,
                 current_bin_id,
                 current_seq_id,
@@ -140,7 +151,10 @@ def process_links_data(links_tsv_path, sequence_lengths_tsv_path):
                 seq_id2_out,
                 start2_out,
                 end2_out
-            ])
+            ]
+            if has_strand:
+                row_to_append.append("+")
+            output_rows.append(row_to_append)
 
     # Second pass: Identify uncovered regions based on sequence lengths
     final_output_rows_with_uncovered = output_rows[:]
@@ -153,27 +167,33 @@ def process_links_data(links_tsv_path, sequence_lengths_tsv_path):
         for start, end in merged:
             if start > last_covered_end:
                 # Uncovered region found
-                final_output_rows_with_uncovered.append([
+                row_to_append = [
                     f"nonsyn_{non_syn_counter}", # New block_id
                     bin_id,
                     seq_id,
                     last_covered_end,
                     start, # End of uncovered region
                     "null", "null", "null", "null"
-                ])
+                ]
+                if has_strand:
+                    row_to_append.append("+")
+                final_output_rows_with_uncovered.append(row_to_append)
                 non_syn_counter += 1
             last_covered_end = max(last_covered_end, end)
         
         if last_covered_end < total_length:
             # Trailing uncovered region
-            final_output_rows_with_uncovered.append([
+            row_to_append = [
                 f"nonsyn_{non_syn_counter}", # New block_id
                 bin_id,
                 seq_id,
                 last_covered_end,
                 total_length, # End of chromosome
                 "null", "null", "null", "null"
-            ])
+            ]
+            if has_strand:
+                row_to_append.append("+")
+            final_output_rows_with_uncovered.append(row_to_append)
             non_syn_counter += 1
 
     # Create DataFrame from final output rows

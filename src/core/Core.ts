@@ -85,11 +85,23 @@ export class SyntenyViz {
     // --- DATA LOADING ---
     async loadTSV(file: File) {
         const text = await file.text();
-        this.setData(text);
+        await this.setData(text);
     }
 
-    setData(tsvText: string) {
-        const { samplesMap, groupToIndex } = Parsers.parseTSV(tsvText);
+    async setData(tsvText: string) {
+        const { samplesMap, groupToIndex, detectedStrandColumn, hasInvertedBlocks } = Parsers.parseTSV(tsvText);
+
+        if (detectedStrandColumn && hasInvertedBlocks) {
+            await this.showDisclaimer(
+                "ℹ️ Inversion Detection",
+                "We detected a 'strand' column in your link data, indicating inversions are encoded via strands. The parser will automatically twist corresponding synteny ribbons to represent inversions correctly."
+            );
+        } else if (hasInvertedBlocks) {
+            await this.showDisclaimer(
+                "ℹ️ Inversion Detection",
+                "We detected coordinate-reversed inversions (start > end) in your link data. The parser will automatically twist corresponding synteny ribbons to represent inversions correctly."
+            );
+        }
 
         const samples: Sample[] = [];
         let slot = 0;
@@ -290,6 +302,70 @@ export class SyntenyViz {
 
     showToast(msg: string) {
         this.emit('toast', msg);
+    }
+
+    showDisclaimer(title: string, message: string): Promise<void> {
+        return new Promise<void>((resolve) => {
+            const overlay = d3.select("body").append("div")
+                .attr("class", "disclaimer-overlay")
+                .style("position", "fixed")
+                .style("top", "0")
+                .style("left", "0")
+                .style("width", "100vw")
+                .style("height", "100vh")
+                .style("background", "rgba(15, 23, 42, 0.6)")
+                .style("backdrop-filter", "blur(8px)")
+                .style("-webkit-backdrop-filter", "blur(8px)")
+                .style("display", "flex")
+                .style("justify-content", "center")
+                .style("align-items", "center")
+                .style("z-index", "99999");
+
+            const box = overlay.append("div")
+                .attr("class", "disclaimer-box")
+                .style("background", "white")
+                .style("padding", "24px 32px")
+                .style("border-radius", "16px")
+                .style("max-width", "450px")
+                .style("box-shadow", "0 25px 50px -12px rgba(0,0,0,0.25)")
+                .style("border", "1px solid #e2e8f0")
+                .style("text-align", "center")
+                .style("font-family", "'Inter', sans-serif")
+                .style("animation", "fadeIn 0.2s ease-out");
+
+            box.append("h3")
+                .style("margin", "0 0 12px 0")
+                .style("color", "#0f172a")
+                .style("font-size", "18px")
+                .style("font-weight", "600")
+                .text(title);
+
+            box.append("p")
+                .style("margin", "0 0 20px 0")
+                .style("color", "#475569")
+                .style("font-size", "13px")
+                .style("line-height", "1.6")
+                .text(message);
+
+            const btn = box.append("button")
+                .style("background", "#3b82f6")
+                .style("color", "white")
+                .style("border", "none")
+                .style("padding", "8px 24px")
+                .style("border-radius", "8px")
+                .style("font-size", "13px")
+                .style("font-weight", "600")
+                .style("cursor", "pointer")
+                .style("transition", "background 0.2s")
+                .text("OK")
+                .on("click", () => {
+                    overlay.remove();
+                    resolve();
+                });
+
+            btn.on("mouseenter", function(this: any) { d3.select(this).style("background", "#2563eb"); })
+               .on("mouseleave", function(this: any) { d3.select(this).style("background", "#3b82f6"); });
+        });
     }
 
     _initResizeHandler() {
